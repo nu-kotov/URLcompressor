@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -22,13 +21,10 @@ func (uc *URLCompressor) compressURLHandler(res http.ResponseWriter, req *http.R
 
 	} else if req.Method == http.MethodGet {
 
-		shortUrlId := req.URL.Path[1:]
-		fmt.Println(shortUrlId)
-		fmt.Println(uc.urls)
-		fmt.Println(uc.urls[shortUrlId])
-		if originalURL, ok := uc.urls[shortUrlId]; ok {
-			http.Redirect(res, req, originalURL, http.StatusTemporaryRedirect)
-
+		shortURLID := req.URL.Path[1:]
+		if originalURL, ok := uc.urls[shortURLID]; ok {
+			res.Header().Set("Location", originalURL)
+			res.WriteHeader(http.StatusTemporaryRedirect)
 		} else {
 			res.WriteHeader(http.StatusBadRequest)
 		}
