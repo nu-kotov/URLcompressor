@@ -17,7 +17,7 @@ func (uc *URLCompressor) compressURLHandler(res http.ResponseWriter, req *http.R
 		uc.urls[shortKey] = string(body)
 		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusCreated)
-		io.WriteString(res, string(shortKey))
+		io.WriteString(res, string("http://"+req.Host+"/"+shortKey))
 
 	} else if req.Method == http.MethodGet {
 
