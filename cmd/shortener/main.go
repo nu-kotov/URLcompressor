@@ -1,36 +1,41 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
-
-	"github.com/gorilla/mux"
 )
 
-func (uc *URLCompressor) postCompressURLHandler(res http.ResponseWriter, req *http.Request) {
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		http.Error(res, "Invalid body", http.StatusBadRequest)
-		return
-	}
-	shortKey := generateShortKey()
-	uc.urls[shortKey] = string(body)
-	res.Header().Set("content-type", "text/plain")
-	res.WriteHeader(http.StatusCreated)
-	io.WriteString(res, string(shortKey))
-}
+func (uc *URLCompressor) compressURLHandler(res http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodPost {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			http.Error(res, "Invalid body", http.StatusBadRequest)
+			return
+		}
+		shortKey := generateShortKey()
+		uc.urls[shortKey] = string(body)
+		res.Header().Set("Content-Type", "text/plain")
+		res.WriteHeader(http.StatusCreated)
+		io.WriteString(res, string(shortKey))
 
-func (uc *URLCompressor) getShortURLById(res http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	shortUrlId := params["id"]
-	originalURL, found := uc.urls[shortUrlId]
-	if !found {
-		http.Error(res, "Shortened key not found", http.StatusBadRequest)
-		return
+	} else if req.Method == http.MethodGet {
+
+		shortUrlId := req.URL.Path[1:]
+		fmt.Println(shortUrlId)
+		fmt.Println(uc.urls)
+		fmt.Println(uc.urls[shortUrlId])
+		if originalURL, ok := uc.urls[shortUrlId]; ok {
+			http.Redirect(res, req, originalURL, http.StatusTemporaryRedirect)
+
+		} else {
+			res.WriteHeader(http.StatusBadRequest)
+		}
+	} else {
+		res.WriteHeader(http.StatusBadRequest)
 	}
-	res.WriteHeader(http.StatusTemporaryRedirect)
-	io.WriteString(res, originalURL)
+
 }
 
 func generateShortKey() string {
@@ -53,11 +58,10 @@ func main() {
 		urls: make(map[string]string),
 	}
 
-	router := mux.NewRouter()
-	router.HandleFunc(`/`, urlCompressor.postCompressURLHandler).Methods("POST")
-	router.HandleFunc(`/{id:\w+}`, urlCompressor.getShortURLById).Methods("GET")
+	mux := http.NewServeMux()
+	mux.HandleFunc(`/`, urlCompressor.compressURLHandler)
 
-	err := http.ListenAndServe(`:8080`, router)
+	err := http.ListenAndServe(`:8080`, mux)
 	if err != nil {
 		panic(err)
 	}
