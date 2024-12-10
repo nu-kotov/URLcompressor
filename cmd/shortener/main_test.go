@@ -120,6 +120,7 @@ func TestShortURLByID(t *testing.T) {
 
 			res := w.Result()
 			assert.Equal(t, test.want.code, res.StatusCode)
+			defer res.Body.Close()
 
 			if test.want.url != "" {
 				assert.Equal(t, test.want.url, request.URL.String(), "URL запроса не совпадает с ожидаемым")
