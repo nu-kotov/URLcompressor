@@ -9,27 +9,36 @@ import (
 )
 
 func CompressURLHandler(res http.ResponseWriter, req *http.Request) {
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		http.Error(res, "Invalid body", http.StatusBadRequest)
-		return
-	}
-	shortKey := generateShortKey()
-	savedURLs[shortKey] = string(body)
-	res.Header().Set("Content-Type", "text/plain")
-	res.WriteHeader(http.StatusCreated)
-	io.WriteString(res, string("http://"+req.Host+"/"+shortKey))
-}
-
-func ShortURLByID(res http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	shortURLID := params["id"]
-	if originalURL, ok := savedURLs[shortURLID]; ok {
-		res.Header().Set("Location", originalURL)
-		res.WriteHeader(http.StatusTemporaryRedirect)
+	if req.Method == http.MethodPost {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			http.Error(res, "Invalid body", http.StatusBadRequest)
+			return
+		}
+		shortKey := generateShortKey()
+		savedURLs[shortKey] = string(body)
+		res.Header().Set("Content-Type", "text/plain")
+		res.WriteHeader(http.StatusCreated)
+		io.WriteString(res, string("http://"+req.Host+"/"+shortKey))
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
 	}
+}
+
+func ShortURLByID(res http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodGet {
+		params := mux.Vars(req)
+		shortURLID := params["id"]
+		if originalURL, ok := savedURLs[shortURLID]; ok {
+			res.Header().Set("Location", originalURL)
+			res.WriteHeader(http.StatusTemporaryRedirect)
+		} else {
+			res.WriteHeader(http.StatusBadRequest)
+		}
+	} else {
+		res.WriteHeader(http.StatusBadRequest)
+	}
+
 }
 
 func generateShortKey() string {
@@ -47,8 +56,8 @@ var savedURLs = make(map[string]string)
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc(`/`, CompressURLHandler).Methods("POST")
-	router.HandleFunc(`/{id:\w+}`, ShortURLByID).Methods("GET")
+	router.HandleFunc(`/`, CompressURLHandler)
+	router.HandleFunc(`/{id:\w+}`, ShortURLByID)
 
 	err := http.ListenAndServe(`:8080`, router)
 	if err != nil {

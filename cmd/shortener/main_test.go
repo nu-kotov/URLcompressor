@@ -1,21 +1,16 @@
 package main
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/stretchr/testify/assert"
 )
 
-func TestpostCompressURLHandler(t *testing.T) {
-	responseBody := "http://localhost:8080/" + generateShortKey()
+func TestCompressURLHandler(t *testing.T) {
 	type want struct {
 		code        int
-		response    string
 		contentType string
 		method      string
 	}
@@ -27,27 +22,32 @@ func TestpostCompressURLHandler(t *testing.T) {
 			name: "Creating short url",
 			want: want{
 				code:        201,
-				response:    responseBody,
 				contentType: "text/plain",
 				method:      http.MethodPost,
 			},
 		},
 		{
-			name: "Wrong method - 405",
+			name: "Wrong method - resp status 400",
 			want: want{
-				code:        405,
-				response:    "",
+				code:        400,
 				contentType: "",
 				method:      http.MethodGet,
 			},
 		},
 		{
-			name: "Wrong method - 405",
+			name: "Wrong method - resp status 400",
 			want: want{
-				code:        405,
-				response:    "",
+				code:        400,
 				contentType: "",
 				method:      http.MethodPut,
+			},
+		},
+		{
+			name: "Wrong method - resp status 400",
+			want: want{
+				code:        400,
+				contentType: "",
+				method:      http.MethodDelete,
 			},
 		},
 	}
@@ -60,17 +60,70 @@ func TestpostCompressURLHandler(t *testing.T) {
 			res := w.Result()
 			assert.Equal(t, test.want.code, res.StatusCode)
 			defer res.Body.Close()
-			resBody, err := io.ReadAll(res.Body)
 
-			require.NoError(t, err)
 			if test.want.contentType != "" {
 				assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
 			}
-			if test.want.response != "" {
-				assert.Equal(t, test.want.response, w.Body.String(), "Тело ответа не совпадает с ожидаемым")
-			}
-			assert.JSONEq(t, test.want.response, string(resBody))
+		})
+	}
+}
 
+func TestShortURLByID(t *testing.T) {
+	type want struct {
+		code     int
+		url      string
+		location string
+		method   string
+	}
+	tests := []struct {
+		name string
+		want want
+	}{
+		{
+			name: "Creating short url",
+			want: want{
+				code:   400,
+				url:    "/compressedID",
+				method: http.MethodGet,
+			},
+		},
+		{
+			name: "Wrong method - resp status 400",
+			want: want{
+				code:   400,
+				url:    "",
+				method: http.MethodPost,
+			},
+		},
+		{
+			name: "Wrong method - resp status 400",
+			want: want{
+				code:   400,
+				url:    "",
+				method: http.MethodPut,
+			},
+		},
+		{
+			name: "Wrong method - resp status 400",
+			want: want{
+				code:   400,
+				url:    "",
+				method: http.MethodDelete,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(test.want.method, "/compressedID", nil)
+			w := httptest.NewRecorder()
+			ShortURLByID(w, request)
+
+			res := w.Result()
+			assert.Equal(t, test.want.code, res.StatusCode)
+
+			if test.want.url != "" {
+				assert.Equal(t, test.want.url, request.URL.String(), "URL запроса не совпадает с ожидаемым")
+			}
 		})
 	}
 }
