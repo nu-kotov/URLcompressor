@@ -4,34 +4,32 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
-func (uc *URLCompressor) compressURLHandler(res http.ResponseWriter, req *http.Request) {
-	if req.Method == http.MethodPost {
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			http.Error(res, "Invalid body", http.StatusBadRequest)
-			return
-		}
-		shortKey := generateShortKey()
-		uc.urls[shortKey] = string(body)
-		res.Header().Set("Content-Type", "text/plain")
-		res.WriteHeader(http.StatusCreated)
-		io.WriteString(res, string("http://"+req.Host+"/"+shortKey))
+func CompressURLHandler(res http.ResponseWriter, req *http.Request) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(res, "Invalid body", http.StatusBadRequest)
+		return
+	}
+	shortKey := generateShortKey()
+	savedURLs[shortKey] = string(body)
+	res.Header().Set("Content-Type", "text/plain")
+	res.WriteHeader(http.StatusCreated)
+	io.WriteString(res, string("http://"+req.Host+"/"+shortKey))
+}
 
-	} else if req.Method == http.MethodGet {
-
-		shortURLID := req.URL.Path[1:]
-		if originalURL, ok := uc.urls[shortURLID]; ok {
-			res.Header().Set("Location", originalURL)
-			res.WriteHeader(http.StatusTemporaryRedirect)
-		} else {
-			res.WriteHeader(http.StatusBadRequest)
-		}
+func ShortURLByID(res http.ResponseWriter, req *http.Request) {
+	params := mux.Vars(req)
+	shortURLID := params["id"]
+	if originalURL, ok := savedURLs[shortURLID]; ok {
+		res.Header().Set("Location", originalURL)
+		res.WriteHeader(http.StatusTemporaryRedirect)
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
 	}
-
 }
 
 func generateShortKey() string {
@@ -45,19 +43,14 @@ func generateShortKey() string {
 	return string(shortKey)
 }
 
-type URLCompressor struct {
-	urls map[string]string
-}
+var savedURLs = make(map[string]string)
 
 func main() {
-	urlCompressor := &URLCompressor{
-		urls: make(map[string]string),
-	}
+	router := mux.NewRouter()
+	router.HandleFunc(`/`, CompressURLHandler).Methods("POST")
+	router.HandleFunc(`/{id:\w+}`, ShortURLByID).Methods("GET")
 
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, urlCompressor.compressURLHandler)
-
-	err := http.ListenAndServe(`:8080`, mux)
+	err := http.ListenAndServe(`:8080`, router)
 	if err != nil {
 		panic(err)
 	}
