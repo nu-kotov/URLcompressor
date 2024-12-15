@@ -115,14 +115,14 @@ func TestShortURLByID(t *testing.T) {
 
 	defer server.Close()
 
-	testURL := "https://ya.ru"
+	testURL := "http://ya.ru"
 
 	req := resty.New().R()
 	req.URL = server.URL
 	req.Body = testURL
 	resp, creatingShortIDError := req.Post(server.URL)
 	assert.NoError(t, creatingShortIDError, "error making HTTP request")
-	compressedURLSuffix := "/" + strings.Split(string(resp.Body()), "/")[1]
+	compressedURLSuffix := "/" + strings.Split(string(resp.Body()), "/")[3]
 
 	type want struct {
 		statusCode    int
@@ -201,7 +201,7 @@ func TestShortURLByID(t *testing.T) {
 			assert.Equal(t, test.want.statusCode, resp.StatusCode(), "Response statusCode didn't match expected")
 
 			if test.want.compressedURL != "" && test.want.statusCode != http.StatusBadRequest {
-				assert.Equal(t, testURL, "https://"+resp.RawResponse.Request.URL.Host, "Response Host didn't match expected")
+				assert.Equal(t, testURL, "http://"+resp.RawResponse.Request.URL.Host, "Response Host didn't match expected")
 			}
 		})
 	}
