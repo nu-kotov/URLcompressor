@@ -3,16 +3,35 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/go-resty/resty/v2"
+	"github.com/gorilla/mux"
+	"github.com/sqids/sqids-go"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCompressURLHandler(t *testing.T) {
+
+	handler := http.HandlerFunc(CompressURLHandler)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	testURL := "https://ya.ru"
+	URLHash := hash([]byte(testURL))
+
+	sqids, newSqidsError := sqids.New()
+	assert.NoError(t, newSqidsError, "error making sqids variable")
+
+	shortID, IDCreatingError := sqids.Encode([]uint64{URLHash})
+	assert.NoError(t, IDCreatingError, "error making %v expected variable", shortID)
+
 	type want struct {
-		code        int
-		contentType string
-		method      string
+		statusCode      int
+		contentType     string
+		method          string
+		expectedShortID string
 	}
 	tests := []struct {
 		name string
@@ -21,109 +40,168 @@ func TestCompressURLHandler(t *testing.T) {
 		{
 			name: "Creating short url",
 			want: want{
-				code:        201,
-				contentType: "text/plain",
-				method:      http.MethodPost,
+				statusCode:      201,
+				contentType:     "text/plain",
+				method:          http.MethodPost,
+				expectedShortID: shortID,
 			},
 		},
 		{
 			name: "Wrong method - resp status 400",
 			want: want{
-				code:        400,
-				contentType: "",
-				method:      http.MethodGet,
+				statusCode:      400,
+				contentType:     "",
+				method:          http.MethodGet,
+				expectedShortID: "",
 			},
 		},
 		{
 			name: "Wrong method - resp status 400",
 			want: want{
-				code:        400,
-				contentType: "",
-				method:      http.MethodPut,
+				statusCode:      400,
+				contentType:     "",
+				method:          http.MethodPut,
+				expectedShortID: "",
 			},
 		},
 		{
 			name: "Wrong method - resp status 400",
 			want: want{
-				code:        400,
-				contentType: "",
-				method:      http.MethodDelete,
+				statusCode:      400,
+				contentType:     "",
+				method:          http.MethodDelete,
+				expectedShortID: "",
+			},
+		},
+		{
+			name: "Wrong method - resp status 400",
+			want: want{
+				statusCode:      400,
+				contentType:     "",
+				method:          http.MethodPatch,
+				expectedShortID: "",
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(test.want.method, "/", nil)
-			w := httptest.NewRecorder()
-			CompressURLHandler(w, request)
 
-			res := w.Result()
-			assert.Equal(t, test.want.code, res.StatusCode)
-			defer res.Body.Close()
+			req := resty.New().R()
+			req.Method = test.want.method
+			req.URL = server.URL
+			req.Body = testURL
+
+			resp, err := req.Send()
+			assert.NoError(t, err, "error making HTTP request")
+
+			assert.Equal(t, test.want.statusCode, resp.StatusCode(), "Response statusCode didn't match expected")
 
 			if test.want.contentType != "" {
-				assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+				assert.Equal(t, test.want.contentType, resp.Header()["Content-Type"][0])
+			}
+			if test.want.expectedShortID != "" {
+				assert.True(t, strings.HasSuffix(string(resp.Body()), test.want.expectedShortID))
 			}
 		})
 	}
 }
 
 func TestShortURLByID(t *testing.T) {
+
+	router := mux.NewRouter()
+	router.HandleFunc(`/`, CompressURLHandler)
+	router.HandleFunc(`/{id:\w+}`, ShortURLByID)
+	server := httptest.NewServer(router)
+
+	defer server.Close()
+
+	testURL := "http://ya.ru"
+
+	req := resty.New().R()
+	req.URL = server.URL
+	req.Body = testURL
+	resp, creatingShortIDError := req.Post(server.URL)
+	assert.NoError(t, creatingShortIDError, "error making HTTP request")
+	compressedURLSuffix := "/" + strings.Split(string(resp.Body()), "/")[3]
+
 	type want struct {
-		code     int
-		url      string
-		location string
-		method   string
+		statusCode    int
+		compressedURL string
+		location      string
+		method        string
 	}
 	tests := []struct {
 		name string
 		want want
 	}{
 		{
-			name: "Creating short url",
+			name: "Get decompressed url - success",
 			want: want{
-				code:   400,
-				url:    "/compressedID",
-				method: http.MethodGet,
+				statusCode:    http.StatusOK,
+				compressedURL: compressedURLSuffix,
+				location:      testURL,
+				method:        http.MethodGet,
+			},
+		},
+		{
+			name: "Get decompressed url - non-existent",
+			want: want{
+				statusCode:    http.StatusBadRequest,
+				compressedURL: "/nonExistent",
+				location:      "",
+				method:        http.MethodGet,
 			},
 		},
 		{
 			name: "Wrong method - resp status 400",
 			want: want{
-				code:   400,
-				url:    "",
-				method: http.MethodPost,
+				statusCode:    http.StatusBadRequest,
+				compressedURL: compressedURLSuffix,
+				location:      "",
+				method:        http.MethodPost,
 			},
 		},
 		{
 			name: "Wrong method - resp status 400",
 			want: want{
-				code:   400,
-				url:    "",
-				method: http.MethodPut,
+				statusCode:    http.StatusBadRequest,
+				compressedURL: compressedURLSuffix,
+				location:      "",
+				method:        http.MethodPut,
 			},
 		},
 		{
 			name: "Wrong method - resp status 400",
 			want: want{
-				code:   400,
-				url:    "",
-				method: http.MethodDelete,
+				statusCode:    http.StatusBadRequest,
+				compressedURL: compressedURLSuffix,
+				location:      "",
+				method:        http.MethodDelete,
+			},
+		},
+		{
+			name: "Wrong method - resp status 400",
+			want: want{
+				statusCode:    http.StatusBadRequest,
+				compressedURL: compressedURLSuffix,
+				location:      "",
+				method:        http.MethodPatch,
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(test.want.method, "/compressedID", nil)
-			w := httptest.NewRecorder()
-			ShortURLByID(w, request)
+			req := resty.New().R()
+			req.Method = test.want.method
+			req.URL = server.URL + test.want.compressedURL
 
-			res := w.Result()
-			assert.Equal(t, test.want.code, res.StatusCode)
-			defer res.Body.Close()
+			resp, err := req.Send()
+			assert.NoError(t, err, "error making HTTP request")
 
-			if test.want.url != "" {
-				assert.Equal(t, test.want.url, request.URL.String(), "URL запроса не совпадает с ожидаемым")
+			assert.Equal(t, test.want.statusCode, resp.StatusCode(), "Response statusCode didn't match expected")
+
+			if test.want.compressedURL != "" && test.want.statusCode != http.StatusBadRequest {
+				assert.Equal(t, testURL, "http://"+resp.RawResponse.Request.URL.Host, "Response Host didn't match expected")
 			}
 		})
 	}
