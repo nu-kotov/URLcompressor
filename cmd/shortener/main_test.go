@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -17,6 +18,12 @@ func TestCompressURLHandler(t *testing.T) {
 	handler := http.HandlerFunc(CompressURLHandler)
 	server := httptest.NewServer(handler)
 	defer server.Close()
+
+	parsedURL, err := url.Parse(server.URL)
+	assert.NoError(t, err, "parsing server URL error")
+
+	FlagRunAddr = parsedURL.Host
+	FlagBaseURL = server.URL
 
 	testURL := "https://ya.ru"
 	URLHash := hash([]byte(testURL))
@@ -113,6 +120,12 @@ func TestShortURLByID(t *testing.T) {
 	router.HandleFunc(`/{id:\w+}`, ShortURLByID)
 	server := httptest.NewServer(router)
 
+	parsedURL, err := url.Parse(server.URL)
+	assert.NoError(t, err, "parsing server URL error")
+
+	FlagRunAddr = parsedURL.Host
+	FlagBaseURL = server.URL
+
 	defer server.Close()
 
 	testURL := "http://ya.ru"
@@ -122,6 +135,7 @@ func TestShortURLByID(t *testing.T) {
 	req.Body = testURL
 	resp, creatingShortIDError := req.Post(server.URL)
 	assert.NoError(t, creatingShortIDError, "error making HTTP request")
+
 	compressedURLSuffix := "/" + strings.Split(string(resp.Body()), "/")[3]
 
 	type want struct {

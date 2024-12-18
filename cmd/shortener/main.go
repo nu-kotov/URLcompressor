@@ -44,7 +44,7 @@ func CompressURLHandler(res http.ResponseWriter, req *http.Request) {
 
 		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusCreated)
-		io.WriteString(res, string("http://"+req.Host+"/"+shortID))
+		io.WriteString(res, string(FlagBaseURL+"/"+shortID))
 
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
@@ -78,7 +78,8 @@ func main() {
 	router.HandleFunc(`/`, CompressURLHandler)
 	router.HandleFunc(`/{id:\w+}`, ShortURLByID)
 
-	listenAndServeError := http.ListenAndServe(`:8080`, router)
+	ParseConfigFlags()
+	listenAndServeError := http.ListenAndServe(FlagRunAddr, router)
 	if listenAndServeError != nil {
 		panic(listenAndServeError)
 	}
