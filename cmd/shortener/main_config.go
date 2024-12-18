@@ -10,8 +10,8 @@ var (
 )
 
 func ParseConfigFlags() {
-	flag.StringVar(&FlagRunAddr, "run-addr", ":8080", "address and port to run server")
-	flag.StringVar(&FlagBaseURL, "base-url", "http://localhost:8080", "default schema, host and port in compressed URL")
+	flag.StringVar(&FlagRunAddr, "a", ":8080", "address and port to run server")
+	flag.StringVar(&FlagBaseURL, "b", "http://localhost:8080", "default schema, host and port in compressed URL")
 
 	flag.Parse()
 }
