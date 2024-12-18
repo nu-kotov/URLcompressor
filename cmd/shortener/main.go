@@ -44,7 +44,7 @@ func CompressURLHandler(res http.ResponseWriter, req *http.Request) {
 
 		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusCreated)
-		io.WriteString(res, string("http://"+req.Host+"/"+shortID))
+		io.WriteString(res, string("http://"+FlagRunAddr+"/"+shortID))
 
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
