@@ -78,7 +78,8 @@ func main() {
 	router.HandleFunc(`/`, CompressURLHandler)
 	router.HandleFunc(`/{id:\w+}`, ShortURLByID)
 
-	listenAndServeError := http.ListenAndServe(`:8080`, router)
+	ParseConfigFlags()
+	listenAndServeError := http.ListenAndServe(FlagRunAddr, router)
 	if listenAndServeError != nil {
 		panic(listenAndServeError)
 	}
