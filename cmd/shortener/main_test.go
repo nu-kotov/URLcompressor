@@ -118,7 +118,6 @@ func TestCompressURLHandler(t *testing.T) {
 
 func TestShortURLByID(t *testing.T) {
 	var service Service
-	service.config = ParseConfig()
 	service.storage = make(map[string]string)
 
 	router := mux.NewRouter()

@@ -8,7 +8,7 @@ import (
 	"github.com/sqids/sqids-go"
 )
 
-func (srv Service) CompressURLHandler(res http.ResponseWriter, req *http.Request) {
+func (srv *Service) CompressURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
 
@@ -42,7 +42,7 @@ func (srv Service) CompressURLHandler(res http.ResponseWriter, req *http.Request
 	}
 }
 
-func (srv Service) ShortURLByID(res http.ResponseWriter, req *http.Request) {
+func (srv *Service) ShortURLByID(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodGet {
 
