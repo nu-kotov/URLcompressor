@@ -14,25 +14,28 @@ import (
 )
 
 func TestCompressURLHandler(t *testing.T) {
+	var service Service
+	service.storage = make(map[string]string)
 
-	handler := http.HandlerFunc(CompressURLHandler)
+	handler := http.HandlerFunc(service.CompressURLHandler)
 	server := httptest.NewServer(handler)
+
 	defer server.Close()
 
-	parsedURL, err := url.Parse(server.URL)
-	assert.NoError(t, err, "parsing server URL error")
+	parsedURL, errParse := url.Parse(server.URL)
+	assert.NoError(t, errParse, "parsing server URL error")
 
-	FlagRunAddr = parsedURL.Host
-	FlagBaseURL = server.URL
+	service.config.RunAddr = parsedURL.Host
+	service.config.BaseURL = server.URL
 
-	testURL := "https://ya.ru"
+	testURL := "https://stackoverflow.com"
 	URLHash := hash([]byte(testURL))
 
-	sqids, newSqidsError := sqids.New()
-	assert.NoError(t, newSqidsError, "error making sqids variable")
+	sqids, errNewSqids := sqids.New()
+	assert.NoError(t, errNewSqids, "error making sqids variable")
 
-	shortID, IDCreatingError := sqids.Encode([]uint64{URLHash})
-	assert.NoError(t, IDCreatingError, "error making %v expected variable", shortID)
+	shortID, errIDCreating := sqids.Encode([]uint64{URLHash})
+	assert.NoError(t, errIDCreating, "error making %v expected variable", shortID)
 
 	type want struct {
 		statusCode      int
@@ -98,8 +101,8 @@ func TestCompressURLHandler(t *testing.T) {
 			req.URL = server.URL
 			req.Body = testURL
 
-			resp, err := req.Send()
-			assert.NoError(t, err, "error making HTTP request")
+			resp, errSend := req.Send()
+			assert.NoError(t, errSend, "error making HTTP request")
 
 			assert.Equal(t, test.want.statusCode, resp.StatusCode(), "Response statusCode didn't match expected")
 
@@ -114,27 +117,30 @@ func TestCompressURLHandler(t *testing.T) {
 }
 
 func TestShortURLByID(t *testing.T) {
+	var service Service
+	service.config = ParseConfig()
+	service.storage = make(map[string]string)
 
 	router := mux.NewRouter()
-	router.HandleFunc(`/`, CompressURLHandler)
-	router.HandleFunc(`/{id:\w+}`, ShortURLByID)
+	router.HandleFunc(`/`, service.CompressURLHandler)
+	router.HandleFunc(`/{id:\w+}`, service.ShortURLByID)
 	server := httptest.NewServer(router)
 
-	parsedURL, err := url.Parse(server.URL)
-	assert.NoError(t, err, "parsing server URL error")
+	parsedURL, errParse := url.Parse(server.URL)
+	assert.NoError(t, errParse, "parsing server URL error")
 
-	FlagRunAddr = parsedURL.Host
-	FlagBaseURL = server.URL
+	service.config.RunAddr = parsedURL.Host
+	service.config.BaseURL = server.URL
 
 	defer server.Close()
 
-	testURL := "http://ya.ru"
+	testURL := "https://stackoverflow.com"
 
 	req := resty.New().R()
 	req.URL = server.URL
 	req.Body = testURL
-	resp, creatingShortIDError := req.Post(server.URL)
-	assert.NoError(t, creatingShortIDError, "error making HTTP request")
+	resp, errPostCreatingShortID := req.Post(server.URL)
+	assert.NoError(t, errPostCreatingShortID, "error making post HTTP request to %v", server.URL)
 
 	compressedURLSuffix := "/" + strings.Split(string(resp.Body()), "/")[3]
 
@@ -209,13 +215,13 @@ func TestShortURLByID(t *testing.T) {
 			req.Method = test.want.method
 			req.URL = server.URL + test.want.compressedURL
 
-			resp, err := req.Send()
-			assert.NoError(t, err, "error making HTTP request")
+			resp, errSend := req.Send()
+			assert.NoError(t, errSend, "error making HTTP request")
 
 			assert.Equal(t, test.want.statusCode, resp.StatusCode(), "Response statusCode didn't match expected")
 
 			if test.want.compressedURL != "" && test.want.statusCode != http.StatusBadRequest {
-				assert.Equal(t, testURL, "http://"+resp.RawResponse.Request.URL.Host, "Response Host didn't match expected")
+				assert.Equal(t, testURL, "https://"+resp.RawResponse.Request.URL.Host, "Response Host didn't match expected")
 			}
 		})
 	}
