@@ -20,7 +20,7 @@ func ParseConfig() Config {
 		config.RunAddr = envRunAddr
 	}
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
-		config.RunAddr = envBaseURL
+		config.BaseURL = envBaseURL
 	}
 
 	flag.Parse()
