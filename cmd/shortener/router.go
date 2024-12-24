@@ -8,7 +8,7 @@ import (
 func NewRouter(service handler.Service) *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc(`/`, service.CompressURL)
-	router.HandleFunc(`/{id:\w+}`, service.RedirectByShortUrlID)
+	router.HandleFunc(`/{id:\w+}`, service.RedirectByShortURLID)
 
 	return router
 }

@@ -119,7 +119,7 @@ func TestCompressURL(t *testing.T) {
 	}
 }
 
-func TestRedirectByShortUrlID(t *testing.T) {
+func TestRedirectByShortURLID(t *testing.T) {
 	var config config.Config
 	config.RunAddr = "localhost:8080"
 	config.BaseURL = "http://localhost:8080"
@@ -127,7 +127,7 @@ func TestRedirectByShortUrlID(t *testing.T) {
 
 	router := mux.NewRouter()
 	router.HandleFunc(`/`, service.CompressURL)
-	router.HandleFunc(`/{id:\w+}`, service.RedirectByShortUrlID)
+	router.HandleFunc(`/{id:\w+}`, service.RedirectByShortURLID)
 	server := httptest.NewServer(router)
 
 	parsedURL, err := url.Parse(server.URL)

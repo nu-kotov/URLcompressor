@@ -56,7 +56,7 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (srv *Service) RedirectByShortUrlID(res http.ResponseWriter, req *http.Request) {
+func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodGet {
 
