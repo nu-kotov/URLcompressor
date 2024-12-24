@@ -1,32 +1,46 @@
-package main
+package handler
 
 import (
 	"io"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/nu-kotov/URLcompressor/api/utils"
+	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/sqids/sqids-go"
 )
 
-func (srv *Service) CompressURLHandler(res http.ResponseWriter, req *http.Request) {
+type Service struct {
+	config  config.Config
+	storage map[string]string
+}
+
+func InitService(config config.Config) Service {
+	var srv Service
+	srv.config = config
+	srv.storage = make(map[string]string)
+	return srv
+}
+
+func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
 
-		body, errReadingBody := io.ReadAll(req.Body)
-		if errReadingBody != nil {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
 			http.Error(res, "Invalid body", http.StatusBadRequest)
 			return
 		}
 
-		sqids, errNewSqids := sqids.New()
-		if errNewSqids != nil {
+		sqids, err := sqids.New()
+		if err != nil {
 			http.Error(res, "Sqids lib error", http.StatusInternalServerError)
 			return
 		}
 
-		bodyHash := hash(body)
-		shortID, errIDCreating := sqids.Encode([]uint64{bodyHash})
-		if errIDCreating != nil {
+		bodyHash := utils.Hash(body)
+		shortID, err := sqids.Encode([]uint64{bodyHash})
+		if err != nil {
 			http.Error(res, "Short ID creating error", http.StatusInternalServerError)
 			return
 		}
@@ -42,7 +56,7 @@ func (srv *Service) CompressURLHandler(res http.ResponseWriter, req *http.Reques
 	}
 }
 
-func (srv *Service) ShortURLByID(res http.ResponseWriter, req *http.Request) {
+func (srv *Service) RedirectByShortUrlID(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodGet {
 
