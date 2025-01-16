@@ -9,7 +9,11 @@ require (
 	github.com/sqids/sqids-go v0.4.1
 )
 
-require golang.org/x/net v0.32.0 // indirect
+require (
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
