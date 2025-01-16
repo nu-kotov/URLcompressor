@@ -11,7 +11,7 @@ import (
 
 func main() {
 	if err := logger.InitLogger("info"); err != nil {
-		log.Fatal("Error initialize zap logger: %v", err)
+		log.Fatal("Error initialize zap logger: ", err)
 	}
 	config := config.ParseConfig()
 	service := handler.InitService(config)
