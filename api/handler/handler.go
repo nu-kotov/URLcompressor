@@ -52,9 +52,9 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, "Short ID creating error", http.StatusInternalServerError)
 			return
 		}
-		srv.storage[shortID] = string(body)
+		srv.storage[shortID] = string(jsonBody.URL)
 
-		resp := models.ShortenURLResponse{Result: string(srv.config.BaseURL + "/" + shortID)}
+		resp := models.ShortenURLResponse{Result: srv.config.BaseURL + "/" + shortID}
 		respJSON, err := json.Marshal(resp)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
