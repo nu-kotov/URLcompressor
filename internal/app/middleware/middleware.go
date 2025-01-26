@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/nu-kotov/URLcompressor/internal/app/compress"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"go.uber.org/zap"
 )
@@ -57,4 +60,34 @@ func RequestLogger(h http.HandlerFunc) http.HandlerFunc {
 		)
 	})
 	return http.HandlerFunc(logFn)
+}
+
+func RequestCompressor(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ow := w
+
+		acceptEncoding := r.Header.Get("Accept-Encoding")
+		supportsGzip := strings.Contains(acceptEncoding, "gzip")
+		if supportsGzip {
+			cw := compress.NewCompressWriter(w)
+			ow = cw
+			defer cw.Close()
+		}
+
+		contentEncoding := r.Header.Get("Content-Encoding")
+		sendsGzip := strings.Contains(contentEncoding, "gzip")
+		if sendsGzip {
+			fmt.Println("Тело", r.Body)
+			cr, err := compress.NewCompressReader(r.Body)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			r.Body = cr
+			defer cr.Close()
+		}
+
+		h.ServeHTTP(ow, r)
+	}
 }
