@@ -5,35 +5,23 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/nu-kotov/URLcompressor/api/utils"
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
-	"github.com/nu-kotov/URLcompressor/internal/app/storage"
 	"github.com/sqids/sqids-go"
 )
 
 type Service struct {
-	config      config.Config
-	mapStorage  map[string]string
-	fileStorage storage.FileStorage
+	config  config.Config
+	storage map[string]string
 }
 
-func InitService(config config.Config) (Service, error) {
+func InitService(config config.Config) Service {
 	var srv Service
 	srv.config = config
-
-	srv.fileStorage.DataConsumer, _ = storage.NewConsumer(config.FileStoragePath)
-	srv.fileStorage.DataProducer, _ = storage.NewProducer(config.FileStoragePath)
-
-	var err error
-	srv.mapStorage, err = srv.fileStorage.DataConsumer.InitMapStorage()
-	if err != nil {
-		return srv, err
-	}
-
-	return srv, nil
+	srv.storage = make(map[string]string)
+	return srv
 }
 
 func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
@@ -64,20 +52,12 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, "Short ID creating error", http.StatusInternalServerError)
 			return
 		}
-		srv.mapStorage[shortID] = string(jsonBody.URL)
+		srv.storage[shortID] = string(jsonBody.URL)
 
 		resp := models.ShortenURLResponse{Result: srv.config.BaseURL + "/" + shortID}
 		respJSON, err := json.Marshal(resp)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
-		}
-
-		if _, exist := srv.mapStorage[shortID]; !exist {
-			strBody := string(body)
-			srv.mapStorage[shortID] = strBody
-
-			event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
-			srv.fileStorage.DataProducer.WriteEvent(&event)
 		}
 
 		res.Header().Set("Content-Type", "application/json")
@@ -112,13 +92,7 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		if _, exist := srv.mapStorage[shortID]; !exist {
-			strBody := string(body)
-			srv.mapStorage[shortID] = strBody
-
-			event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
-			srv.fileStorage.DataProducer.WriteEvent(&event)
-		}
+		srv.storage[shortID] = string(body)
 
 		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusCreated)
@@ -136,7 +110,7 @@ func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Requ
 		params := mux.Vars(req)
 		shortURLID := params["id"]
 
-		if originalURL, exists := srv.mapStorage[shortURLID]; exists {
+		if originalURL, exists := srv.storage[shortURLID]; exists {
 			res.Header().Set("Location", originalURL)
 			res.WriteHeader(http.StatusTemporaryRedirect)
 		} else {
