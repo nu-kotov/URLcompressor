@@ -19,7 +19,8 @@ import (
 
 func TestCompressURL(t *testing.T) {
 	config := config.ParseConfig()
-	service := InitService(config)
+	service, err := InitService(config)
+	assert.NoError(t, err, "Init service error")
 
 	handler := http.HandlerFunc(service.CompressURL)
 	server := httptest.NewServer(handler)
@@ -126,7 +127,9 @@ func TestGetShortURL(t *testing.T) {
 	var config config.Config
 	config.RunAddr = "localhost:8080"
 	config.BaseURL = "http://localhost:8080"
-	service := InitService(config)
+	config.FileStoragePath = "/tmp/test_file.json"
+	service, err := InitService(config)
+	assert.NoError(t, err, "Init service error")
 
 	handler := http.HandlerFunc(service.GetShortURL)
 	server := httptest.NewServer(handler)
@@ -239,7 +242,9 @@ func TestRedirectByShortURLID(t *testing.T) {
 	var config config.Config
 	config.RunAddr = "localhost:8080"
 	config.BaseURL = "http://localhost:8080"
-	service := InitService(config)
+	config.FileStoragePath = "/tmp/test_file.json"
+	service, err := InitService(config)
+	assert.NoError(t, err, "Init service error")
 
 	router := mux.NewRouter()
 	router.HandleFunc(`/`, service.CompressURL)
