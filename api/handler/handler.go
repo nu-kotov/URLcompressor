@@ -28,7 +28,7 @@ func InitService(config config.Config) (Service, error) {
 	srv.fileStorage.DataProducer, _ = storage.NewProducer(config.FileStoragePath)
 
 	var err error
-	srv.mapStorage, err = srv.fileStorage.DataConsumer.InitMapStorage()
+	srv.mapStorage, err = storage.InitMapStorage(srv.fileStorage.DataConsumer)
 	if err != nil {
 		return srv, err
 	}

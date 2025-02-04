@@ -84,7 +84,7 @@ func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-func (c *Consumer) InitMapStorage() (map[string]string, error) {
+func InitMapStorage(c *Consumer) (map[string]string, error) {
 
 	mapStorage := make(map[string]string)
 	for {
