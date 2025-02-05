@@ -18,7 +18,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error initialize service: ", err)
 	}
-	router := NewRouter(service)
+	router := NewRouter(*service)
 
 	log.Fatal(http.ListenAndServe(config.RunAddr, router))
 }

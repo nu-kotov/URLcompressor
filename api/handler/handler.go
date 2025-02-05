@@ -17,23 +17,26 @@ import (
 type Service struct {
 	config      config.Config
 	mapStorage  map[string]string
-	fileStorage storage.FileStorage
+	fileStorage *storage.FileStorage
 }
 
-func InitService(config config.Config) (Service, error) {
+func InitService(config config.Config) (*Service, error) {
 	var srv Service
+	var err error
+
 	srv.config = config
 
-	srv.fileStorage.DataConsumer, _ = storage.NewConsumer(config.FileStoragePath)
-	srv.fileStorage.DataProducer, _ = storage.NewProducer(config.FileStoragePath)
-
-	var err error
-	srv.mapStorage, err = storage.InitMapStorage(srv.fileStorage.DataConsumer)
+	srv.fileStorage, err = storage.NewFileStorage(config.FileStoragePath)
 	if err != nil {
-		return srv, err
+		return &srv, err
 	}
 
-	return srv, nil
+	srv.mapStorage, err = storage.InitMapStorage(srv.fileStorage.DataConsumer)
+	if err != nil {
+		return nil, err
+	}
+
+	return &srv, nil
 }
 
 func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
@@ -117,7 +120,7 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 			srv.mapStorage[shortID] = strBody
 
 			event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
-			srv.fileStorage.DataProducer.WriteEvent(&event)
+			srv.fileStorage.ProduceEvent(&event)
 		}
 
 		res.Header().Set("Content-Type", "text/plain")

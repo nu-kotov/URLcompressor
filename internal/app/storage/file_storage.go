@@ -13,12 +13,31 @@ type FileStorage struct {
 	DataConsumer *Consumer
 }
 
+func NewFileStorage(filename string) (*FileStorage, error) {
+	producer, err := newProducer(filename)
+	if err != nil {
+		return nil, err
+	}
+	consumer, err := newConsumer(filename)
+	if err != nil {
+		return nil, err
+	}
+	return &FileStorage{
+		DataProducer: producer,
+		DataConsumer: consumer,
+	}, nil
+}
+
+func (f *FileStorage) ProduceEvent(event *models.URLsData) error {
+	return f.DataProducer.WriteEvent(event)
+}
+
 type Producer struct {
 	file   *os.File
 	writer *bufio.Writer
 }
 
-func NewProducer(filename string) (*Producer, error) {
+func newProducer(filename string) (*Producer, error) {
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
@@ -52,7 +71,7 @@ type Consumer struct {
 	scanner *bufio.Scanner
 }
 
-func NewConsumer(filename string) (*Consumer, error) {
+func newConsumer(filename string) (*Consumer, error) {
 	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
