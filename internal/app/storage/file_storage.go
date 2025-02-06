@@ -28,6 +28,25 @@ func NewFileStorage(filename string) (*FileStorage, error) {
 	}, nil
 }
 
+func (f *FileStorage) InitMapStorage() (map[string]string, error) {
+
+	mapStorage := make(map[string]string)
+	for {
+		fileStr, err := f.DataConsumer.ReadEvent()
+		if err != nil {
+			return nil, err
+		}
+		if fileStr == nil {
+			break
+		}
+		mapStorage[fileStr.ShortURL] = fileStr.OriginalURL
+
+	}
+	f.DataConsumer.Close()
+
+	return mapStorage, nil
+}
+
 func (f *FileStorage) ProduceEvent(event *models.URLsData) error {
 	return f.DataProducer.WriteEvent(event)
 }
@@ -101,23 +120,4 @@ func (c *Consumer) ReadEvent() (*models.URLsData, error) {
 
 func (c *Consumer) Close() error {
 	return c.file.Close()
-}
-
-func (fileStorage *FileStorage) InitMapStorage() (map[string]string, error) {
-
-	mapStorage := make(map[string]string)
-	for {
-		fileStr, err := fileStorage.DataConsumer.ReadEvent()
-		if err != nil {
-			return nil, err
-		}
-		if fileStr == nil {
-			break
-		}
-		mapStorage[fileStr.ShortURL] = fileStr.OriginalURL
-
-	}
-	fileStorage.DataConsumer.Close()
-
-	return mapStorage, nil
 }
