@@ -14,8 +14,11 @@ func main() {
 		log.Fatal("Error initialize zap logger: ", err)
 	}
 	config := config.ParseConfig()
-	service := handler.InitService(config)
-	router := NewRouter(service)
+	service, err := handler.InitService(config)
+	if err != nil {
+		log.Fatal("Error initialize service: ", err)
+	}
+	router := NewRouter(*service)
 
 	log.Fatal(http.ListenAndServe(config.RunAddr, router))
 }
