@@ -103,11 +103,11 @@ func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-func InitMapStorage(c *Consumer) (map[string]string, error) {
+func (fileStorage *FileStorage) InitMapStorage() (map[string]string, error) {
 
 	mapStorage := make(map[string]string)
 	for {
-		fileStr, err := c.ReadEvent()
+		fileStr, err := fileStorage.DataConsumer.ReadEvent()
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +117,7 @@ func InitMapStorage(c *Consumer) (map[string]string, error) {
 		mapStorage[fileStr.ShortURL] = fileStr.OriginalURL
 
 	}
-	c.Close()
+	fileStorage.DataConsumer.Close()
 
 	return mapStorage, nil
 }

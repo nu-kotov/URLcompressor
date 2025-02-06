@@ -31,7 +31,7 @@ func InitService(config config.Config) (*Service, error) {
 		return &srv, err
 	}
 
-	srv.mapStorage, err = storage.InitMapStorage(srv.fileStorage.DataConsumer)
+	srv.mapStorage, err = srv.fileStorage.InitMapStorage()
 	if err != nil {
 		return nil, err
 	}
