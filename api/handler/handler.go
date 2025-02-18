@@ -18,6 +18,7 @@ type Service struct {
 	config      config.Config
 	mapStorage  map[string]string
 	fileStorage *storage.FileStorage
+	dbStorage   *storage.DBStorage
 }
 
 func InitService(config config.Config) (*Service, error) {
@@ -35,6 +36,12 @@ func InitService(config config.Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	srv.dbStorage, err = storage.NewConnect(config.DatabaseConnection)
+	if err != nil {
+		return nil, err
+	}
+	defer srv.dbStorage.Close()
 
 	return &srv, nil
 }
@@ -146,6 +153,19 @@ func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Requ
 			res.WriteHeader(http.StatusBadRequest)
 		}
 
+	} else {
+		res.WriteHeader(http.StatusBadRequest)
+	}
+}
+
+func (srv *Service) PingDB(res http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodGet {
+		err := srv.dbStorage.Ping()
+		if err != nil {
+			res.WriteHeader(http.StatusInternalServerError)
+		} else {
+			res.WriteHeader(http.StatusOK)
+		}
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
 	}
