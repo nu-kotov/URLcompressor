@@ -41,7 +41,6 @@ func InitService(config config.Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer srv.dbStorage.Close()
 
 	return &srv, nil
 }
