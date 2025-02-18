@@ -14,6 +14,7 @@ func NewRouter(service handler.Service) *mux.Router {
 		middleware.RequestLogger,
 	)
 
+	router.HandleFunc(`/ping`, service.PingDB)
 	router.HandleFunc(`/`, middlewareStack(service.CompressURL))
 	router.HandleFunc(`/{id:\w+}`, middlewareStack(service.RedirectByShortURLID))
 	router.HandleFunc(`/api/shorten`, middlewareStack(service.GetShortURL))
