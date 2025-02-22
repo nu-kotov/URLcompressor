@@ -17,7 +17,7 @@ func ParseConfig() Config {
 
 	flag.StringVar(&config.RunAddr, "a", "localhost:8080", "address and port to run server")
 	flag.StringVar(&config.BaseURL, "b", "http://localhost:8080", "default schema, host and port in compressed URL")
-	flag.StringVar(&config.FileStoragePath, "f", "/tmp/urls_data.json", "Path to file with saved URLs data")
+	flag.StringVar(&config.FileStoragePath, "f", "", "Path to file with saved URLs data")
 	flag.StringVar(&config.DatabaseConnection, "d", "", "Database connection string")
 
 	if envRunAddr := os.Getenv("SERVER_ADDRESS"); envRunAddr != "" {
