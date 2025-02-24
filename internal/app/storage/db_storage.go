@@ -38,8 +38,9 @@ func (pg *DBStorage) CreateTable() error {
 	_, err := pg.db.ExecContext(
 		context.Background(),
 		`CREATE TABLE IF NOT EXISTS urls (
-			short_url    TEXT NOT NULL PRIMARY KEY,
-			original_url TEXT NOT NULL
+			short_url      TEXT NOT NULL PRIMARY KEY,
+			original_url   TEXT NOT NULL,
+			correlation_id TEXT
 		);`)
 
 	if err != nil {
@@ -60,4 +61,27 @@ func (pg *DBStorage) InsertURLsData(data *models.URLsData) error {
 		return err
 	}
 	return nil
+}
+
+func (pg *DBStorage) InsertURLsDataBatch(data []models.URLsData) error {
+	tx, err := pg.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	for _, d := range data {
+		_, err := tx.ExecContext(
+			context.Background(),
+			`INSERT INTO urls (short_url, original_url, correlation_id) VALUES ($1, $2, $3);`,
+			d.ShortURL,
+			d.OriginalURL,
+			d.CorrelationID,
+		)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
