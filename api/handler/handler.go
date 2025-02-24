@@ -56,6 +56,87 @@ func InitService(config config.Config) (*Service, error) {
 	return &srv, nil
 }
 
+func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodPost {
+		var jsonBody []models.GetShortURLsBatchRequest
+
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			http.Error(res, "Invalid body", http.StatusBadRequest)
+			return
+		}
+		if err = json.Unmarshal(body, &jsonBody); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		var resp []models.GetShortURLsBatchResponse
+		var rowsBatch []models.URLsData
+		for _, row := range jsonBody {
+
+			sqids, err := sqids.New()
+			if err != nil {
+				http.Error(res, "Sqids lib error", http.StatusInternalServerError)
+				return
+			}
+
+			bodyHash := utils.Hash([]byte(row.OriginalURL))
+			shortID, err := sqids.Encode([]uint64{bodyHash})
+			if err != nil {
+				http.Error(res, "Short ID creating error", http.StatusInternalServerError)
+				return
+			}
+
+			resp = append(
+				resp,
+				models.GetShortURLsBatchResponse{
+					CorrelationID: row.CorrelationID,
+					ShortURL:      srv.config.BaseURL + "/" + shortID,
+				},
+			)
+
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusBadRequest)
+			}
+
+			if _, exist := srv.mapStorage[shortID]; !exist {
+
+				strBody := string(row.OriginalURL)
+				srv.mapStorage[shortID] = strBody
+
+				event := models.URLsData{
+					UUID:          uuid.New().String(),
+					ShortURL:      shortID,
+					OriginalURL:   strBody,
+					CorrelationID: row.CorrelationID,
+				}
+
+				if srv.config.FileStoragePath != "" {
+					srv.fileStorage.ProduceEvent(&event)
+				}
+				rowsBatch = append(rowsBatch, event)
+			}
+		}
+		if srv.config.DatabaseConnection != "" {
+			err := srv.dbStorage.InsertURLsDataBatch(rowsBatch)
+			if err != nil {
+				logger.Log.Info(err.Error())
+				http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+				return
+			}
+		}
+		respJSON, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+		}
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusCreated)
+		res.Write(respJSON)
+	} else {
+		res.WriteHeader(http.StatusBadRequest)
+	}
+}
+
 func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
@@ -84,7 +165,6 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, "Short ID creating error", http.StatusInternalServerError)
 			return
 		}
-		srv.mapStorage[shortID] = string(jsonBody.URL)
 
 		resp := models.ShortenURLResponse{Result: srv.config.BaseURL + "/" + shortID}
 		respJSON, err := json.Marshal(resp)
