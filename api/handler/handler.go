@@ -95,10 +95,6 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 				},
 			)
 
-			if err != nil {
-				http.Error(res, err.Error(), http.StatusBadRequest)
-			}
-
 			if _, exist := srv.mapStorage[shortID]; !exist {
 
 				strBody := string(row.OriginalURL)
