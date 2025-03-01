@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -168,23 +169,30 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 		}
 
+		strBody := string(jsonBody.URL)
+		event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
+
 		if _, exist := srv.mapStorage[shortID]; !exist {
 
-			strBody := string(jsonBody.URL)
 			srv.mapStorage[shortID] = strBody
 
-			event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
 			if srv.config.FileStoragePath != "" {
 				srv.fileStorage.ProduceEvent(&event)
 			}
+		}
 
-			if srv.config.DatabaseConnection != "" {
-				err := srv.dbStorage.InsertURLsData(&event)
-				if err != nil {
-					logger.Log.Info(err.Error())
-					http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+		if srv.config.DatabaseConnection != "" {
+			err := srv.dbStorage.InsertURLsData(&event)
+			if err != nil {
+				if errors.Is(err, storage.ErrConflict) {
+					res.Header().Set("Content-Type", "application/json")
+					res.WriteHeader(http.StatusConflict)
+					res.Write(respJSON)
 					return
 				}
+				logger.Log.Info(err.Error())
+				http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+				return
 			}
 		}
 
@@ -220,23 +228,30 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		strBody := string(body)
+		event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
+
 		if _, exist := srv.mapStorage[shortID]; !exist {
 
-			strBody := string(body)
 			srv.mapStorage[shortID] = strBody
 
-			event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
 			if srv.config.FileStoragePath != "" {
 				srv.fileStorage.ProduceEvent(&event)
 			}
+		}
 
-			if srv.config.DatabaseConnection != "" {
-				err := srv.dbStorage.InsertURLsData(&event)
-				if err != nil {
-					logger.Log.Info(err.Error())
-					http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+		if srv.config.DatabaseConnection != "" {
+			err := srv.dbStorage.InsertURLsData(&event)
+			if err != nil {
+				if errors.Is(err, storage.ErrConflict) {
+					res.Header().Set("Content-Type", "text/plain")
+					res.WriteHeader(http.StatusConflict)
+					io.WriteString(res, string(srv.config.BaseURL+"/"+shortID))
 					return
 				}
+				logger.Log.Info(err.Error())
+				http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+				return
 			}
 		}
 

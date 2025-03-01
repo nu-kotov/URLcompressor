@@ -3,7 +3,10 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 )
@@ -11,6 +14,8 @@ import (
 type DBStorage struct {
 	db *sql.DB
 }
+
+var ErrConflict = errors.New("data conflict")
 
 var (
 	dbInstance *DBStorage
@@ -58,6 +63,12 @@ func (pg *DBStorage) InsertURLsData(data *models.URLsData) error {
 	)
 
 	if err != nil {
+
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
+			return ErrConflict
+		}
+
 		return err
 	}
 	return nil
@@ -79,6 +90,12 @@ func (pg *DBStorage) InsertURLsDataBatch(data []models.URLsData) error {
 		)
 		if err != nil {
 			tx.Rollback()
+
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
+				return ErrConflict
+			}
+
 			return err
 		}
 	}
