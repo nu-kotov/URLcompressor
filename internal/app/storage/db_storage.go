@@ -54,15 +54,21 @@ func (pg *DBStorage) CreateTable() error {
 	return nil
 }
 
-func (pg *DBStorage) InsertURLsData(data *models.URLsData) error {
-	_, err := pg.db.ExecContext(
-		context.Background(),
+func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
+	tx, err := pg.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(
+		ctx,
 		`INSERT INTO urls (short_url, original_url) VALUES ($1, $2);`,
 		data.ShortURL,
 		data.OriginalURL,
 	)
 
 	if err != nil {
+		tx.Rollback()
 
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
@@ -71,10 +77,11 @@ func (pg *DBStorage) InsertURLsData(data *models.URLsData) error {
 
 		return err
 	}
-	return nil
+
+	return tx.Commit()
 }
 
-func (pg *DBStorage) InsertURLsDataBatch(data []models.URLsData) error {
+func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
 	tx, err := pg.db.Begin()
 	if err != nil {
 		return err
@@ -82,7 +89,7 @@ func (pg *DBStorage) InsertURLsDataBatch(data []models.URLsData) error {
 
 	for _, d := range data {
 		_, err := tx.ExecContext(
-			context.Background(),
+			ctx,
 			`INSERT INTO urls (short_url, original_url, correlation_id) VALUES ($1, $2, $3);`,
 			d.ShortURL,
 			d.OriginalURL,

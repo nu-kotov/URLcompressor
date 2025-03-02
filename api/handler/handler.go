@@ -20,7 +20,7 @@ type Service struct {
 	config      config.Config
 	mapStorage  map[string]string
 	fileStorage *storage.FileStorage
-	dbStorage   *storage.DBStorage
+	DbStorage   *storage.DBStorage
 }
 
 func InitService(config config.Config) (*Service, error) {
@@ -43,12 +43,12 @@ func InitService(config config.Config) (*Service, error) {
 	}
 
 	if config.DatabaseConnection != "" {
-		srv.dbStorage, err = storage.NewConnect(config.DatabaseConnection)
+		srv.DbStorage, err = storage.NewConnect(config.DatabaseConnection)
 		if err != nil {
 			return nil, err
 		}
 
-		err = srv.dbStorage.CreateTable()
+		err = srv.DbStorage.CreateTable()
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +115,7 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 			}
 		}
 		if srv.config.DatabaseConnection != "" {
-			err := srv.dbStorage.InsertURLsDataBatch(rowsBatch)
+			err := srv.DbStorage.InsertURLsDataBatch(req.Context(), rowsBatch)
 			if err != nil {
 				logger.Log.Info(err.Error())
 				http.Error(res, "Inserting to db error", http.StatusInternalServerError)
@@ -182,7 +182,7 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 		}
 
 		if srv.config.DatabaseConnection != "" {
-			err := srv.dbStorage.InsertURLsData(&event)
+			err := srv.DbStorage.InsertURLsData(req.Context(), &event)
 			if err != nil {
 				if errors.Is(err, storage.ErrConflict) {
 					res.Header().Set("Content-Type", "application/json")
@@ -241,7 +241,7 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 		}
 
 		if srv.config.DatabaseConnection != "" {
-			err := srv.dbStorage.InsertURLsData(&event)
+			err := srv.DbStorage.InsertURLsData(req.Context(), &event)
 			if err != nil {
 				if errors.Is(err, storage.ErrConflict) {
 					res.Header().Set("Content-Type", "text/plain")
@@ -288,7 +288,7 @@ func (srv *Service) PingDB(res http.ResponseWriter, req *http.Request) {
 		if srv.config.DatabaseConnection == "" {
 			res.WriteHeader(http.StatusInternalServerError)
 		} else {
-			err := srv.dbStorage.Ping()
+			err := srv.DbStorage.Ping()
 			if err != nil {
 				res.WriteHeader(http.StatusInternalServerError)
 			} else {
