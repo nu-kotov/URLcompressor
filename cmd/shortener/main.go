@@ -21,6 +21,6 @@ func main() {
 	}
 	router := NewRouter(*service)
 
-	defer service.DbStorage.Close()
+	defer service.DBStorage.Close()
 	log.Fatal(http.ListenAndServe(config.RunAddr, router))
 }
