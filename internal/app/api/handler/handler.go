@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/nu-kotov/URLcompressor/api/utils"
 	"github.com/nu-kotov/URLcompressor/config"
+	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
@@ -114,6 +114,10 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 				rowsBatch = append(rowsBatch, event)
 			}
 		}
+		respJSON, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+		}
 		if srv.config.DatabaseConnection != "" {
 			err := srv.DBStorage.InsertURLsDataBatch(req.Context(), rowsBatch)
 			if err != nil {
@@ -122,10 +126,7 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 				return
 			}
 		}
-		respJSON, err := json.Marshal(resp)
-		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
-		}
+
 		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusCreated)
 		res.Write(respJSON)

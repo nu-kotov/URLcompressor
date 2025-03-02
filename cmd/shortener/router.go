@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/nu-kotov/URLcompressor/api/handler"
+	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
 	"github.com/nu-kotov/URLcompressor/internal/app/middleware"
 )
 

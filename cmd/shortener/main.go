@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/nu-kotov/URLcompressor/api/handler"
 	"github.com/nu-kotov/URLcompressor/config"
+	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 )
 
