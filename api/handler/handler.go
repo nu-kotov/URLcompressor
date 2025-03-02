@@ -271,7 +271,16 @@ func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Requ
 		params := mux.Vars(req)
 		shortURLID := params["id"]
 
-		if originalURL, exists := srv.mapStorage[shortURLID]; exists {
+		if srv.config.DatabaseConnection != "" {
+			originalURL, err := srv.DBStorage.SelectOriginalURLByShortURL(req.Context(), shortURLID)
+			if err != nil {
+				logger.Log.Info(err.Error())
+				http.Error(res, "URLs select error", http.StatusInternalServerError)
+				return
+			}
+			res.Header().Set("Location", originalURL)
+			res.WriteHeader(http.StatusTemporaryRedirect)
+		} else if originalURL, exists := srv.mapStorage[shortURLID]; exists {
 			res.Header().Set("Location", originalURL)
 			res.WriteHeader(http.StatusTemporaryRedirect)
 		} else {
