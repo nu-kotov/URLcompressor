@@ -109,20 +109,3 @@ func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLs
 
 	return tx.Commit()
 }
-
-func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error) {
-	var originalURL string
-
-	row := pg.db.QueryRowContext(
-		ctx,
-		`SELECT original_url from urls WHERE short_url = $1`,
-		shortURL,
-	)
-
-	err := row.Scan(&originalURL)
-	if err != nil {
-		return "", err
-	}
-
-	return originalURL, nil
-}
