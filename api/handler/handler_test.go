@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/gorilla/mux"
+	"github.com/nu-kotov/URLcompressor/api/utils"
 	"github.com/nu-kotov/URLcompressor/config"
-	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/sqids/sqids-go"
 	"github.com/stretchr/testify/assert"
