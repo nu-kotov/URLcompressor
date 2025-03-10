@@ -35,8 +35,8 @@ func (pg *DBStorage) Ping() error {
 	return pg.db.Ping()
 }
 
-func (pg *DBStorage) Close() {
-	pg.db.Close()
+func (pg *DBStorage) Close() error {
+	return pg.db.Close()
 }
 
 func (pg *DBStorage) CreateTable() error {

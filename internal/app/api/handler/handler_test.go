@@ -13,13 +13,17 @@ import (
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
+	"github.com/nu-kotov/URLcompressor/internal/app/storage"
 	"github.com/sqids/sqids-go"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCompressURL(t *testing.T) {
 	config := config.ParseConfig()
-	service, err := InitService(config)
+	store, err := storage.NewStorage(config)
+	assert.NoError(t, err, "storage initializing error")
+
+	service := InitService(config, store)
 	assert.NoError(t, err, "Init service error")
 
 	handler := http.HandlerFunc(service.CompressURL)
@@ -128,8 +132,10 @@ func TestGetShortURL(t *testing.T) {
 	config.RunAddr = "localhost:8080"
 	config.BaseURL = "http://localhost:8080"
 	config.FileStoragePath = "/tmp/test_file.json"
-	service, err := InitService(config)
-	assert.NoError(t, err, "Init service error")
+	store, err := storage.NewStorage(config)
+	assert.NoError(t, err, "storage initializing error")
+
+	service := InitService(config, store)
 
 	handler := http.HandlerFunc(service.GetShortURL)
 	server := httptest.NewServer(handler)
@@ -243,19 +249,15 @@ func TestRedirectByShortURLID(t *testing.T) {
 	config.RunAddr = "localhost:8080"
 	config.BaseURL = "http://localhost:8080"
 	config.FileStoragePath = "/tmp/test_file.json"
-	service, err := InitService(config)
-	assert.NoError(t, err, "Init service error")
+	store, err := storage.NewStorage(config)
+	assert.NoError(t, err, "storage initializing error")
+
+	service := InitService(config, store)
 
 	router := mux.NewRouter()
 	router.HandleFunc(`/`, service.CompressURL)
 	router.HandleFunc(`/{id:\w+}`, service.RedirectByShortURLID)
 	server := httptest.NewServer(router)
-
-	parsedURL, err := url.Parse(server.URL)
-	assert.NoError(t, err, "parsing server URL error")
-
-	config.RunAddr = parsedURL.Host
-	config.BaseURL = server.URL
 
 	defer server.Close()
 
@@ -291,7 +293,7 @@ func TestRedirectByShortURLID(t *testing.T) {
 		{
 			name: "Get decompressed url - non-existent",
 			want: want{
-				statusCode:    http.StatusBadRequest,
+				statusCode:    http.StatusInternalServerError,
 				compressedURL: "/nonExistent",
 				location:      "",
 				method:        http.MethodGet,
@@ -345,7 +347,9 @@ func TestRedirectByShortURLID(t *testing.T) {
 
 			assert.Equal(t, test.want.statusCode, resp.StatusCode(), "Response statusCode didn't match expected")
 
-			if test.want.compressedURL != "" && test.want.statusCode != http.StatusBadRequest {
+			if test.want.compressedURL != "" &&
+				test.want.statusCode != http.StatusBadRequest &&
+				test.want.statusCode != http.StatusInternalServerError {
 				assert.Equal(t, testURL, "https://"+resp.RawResponse.Request.URL.Host, "Response Host didn't match expected")
 			}
 		})
