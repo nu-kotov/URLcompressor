@@ -259,6 +259,12 @@ func TestRedirectByShortURLID(t *testing.T) {
 	router.HandleFunc(`/{id:\w+}`, service.RedirectByShortURLID)
 	server := httptest.NewServer(router)
 
+	parsedURL, err := url.Parse(server.URL)
+	assert.NoError(t, err, "parsing server URL error")
+
+	config.RunAddr = parsedURL.Host
+	config.BaseURL = server.URL
+
 	defer server.Close()
 
 	testURL := "https://stackoverflow.com"
@@ -347,9 +353,7 @@ func TestRedirectByShortURLID(t *testing.T) {
 
 			assert.Equal(t, test.want.statusCode, resp.StatusCode(), "Response statusCode didn't match expected")
 
-			if test.want.compressedURL != "" &&
-				test.want.statusCode != http.StatusBadRequest &&
-				test.want.statusCode != http.StatusInternalServerError {
+			if test.want.compressedURL != "" && test.want.statusCode != http.StatusBadRequest && test.want.statusCode != http.StatusInternalServerError {
 				assert.Equal(t, testURL, "https://"+resp.RawResponse.Request.URL.Host, "Response Host didn't match expected")
 			}
 		})
