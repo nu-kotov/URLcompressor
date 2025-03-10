@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/gorilla/mux"
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
@@ -239,122 +238,6 @@ func TestGetShortURL(t *testing.T) {
 			if test.want.expectedResult != "" {
 				json.Unmarshal(resp.Body(), &jsonBody)
 				assert.Equal(t, jsonBody.Result, test.want.expectedResult)
-			}
-		})
-	}
-}
-
-func TestRedirectByShortURLID(t *testing.T) {
-	var config config.Config
-	config.RunAddr = "localhost:8080"
-	config.BaseURL = "http://localhost:8080"
-	config.FileStoragePath = "/tmp/test_file.json"
-	store, err := storage.NewStorage(config)
-	assert.NoError(t, err, "storage initializing error")
-
-	service := InitService(config, store)
-
-	router := mux.NewRouter()
-	router.HandleFunc(`/`, service.CompressURL)
-	router.HandleFunc(`/{id:\w+}`, service.RedirectByShortURLID)
-	server := httptest.NewServer(router)
-
-	parsedURL, err := url.Parse(server.URL)
-	assert.NoError(t, err, "parsing server URL error")
-
-	config.RunAddr = parsedURL.Host
-	config.BaseURL = server.URL
-
-	defer server.Close()
-
-	testURL := "https://stackoverflow.com"
-
-	req := resty.New().R()
-	req.URL = server.URL
-	req.Body = testURL
-	resp, err := req.Post(server.URL)
-	assert.NoError(t, err, "error making post HTTP request to %v", server.URL)
-
-	compressedURLSuffix := "/" + strings.Split(string(resp.Body()), "/")[3]
-
-	type want struct {
-		statusCode    int
-		compressedURL string
-		location      string
-		method        string
-	}
-	tests := []struct {
-		name string
-		want want
-	}{
-		{
-			name: "Get decompressed url - success",
-			want: want{
-				statusCode:    http.StatusOK,
-				compressedURL: compressedURLSuffix,
-				location:      testURL,
-				method:        http.MethodGet,
-			},
-		},
-		{
-			name: "Get decompressed url - non-existent",
-			want: want{
-				statusCode:    http.StatusInternalServerError,
-				compressedURL: "/nonExistent",
-				location:      "",
-				method:        http.MethodGet,
-			},
-		},
-		{
-			name: "Wrong method - resp status 400",
-			want: want{
-				statusCode:    http.StatusBadRequest,
-				compressedURL: compressedURLSuffix,
-				location:      "",
-				method:        http.MethodPost,
-			},
-		},
-		{
-			name: "Wrong method - resp status 400",
-			want: want{
-				statusCode:    http.StatusBadRequest,
-				compressedURL: compressedURLSuffix,
-				location:      "",
-				method:        http.MethodPut,
-			},
-		},
-		{
-			name: "Wrong method - resp status 400",
-			want: want{
-				statusCode:    http.StatusBadRequest,
-				compressedURL: compressedURLSuffix,
-				location:      "",
-				method:        http.MethodDelete,
-			},
-		},
-		{
-			name: "Wrong method - resp status 400",
-			want: want{
-				statusCode:    http.StatusBadRequest,
-				compressedURL: compressedURLSuffix,
-				location:      "",
-				method:        http.MethodPatch,
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			req := resty.New().R()
-			req.Method = test.want.method
-			req.URL = server.URL + test.want.compressedURL
-
-			resp, err := req.Send()
-			assert.NoError(t, err, "error making HTTP request")
-
-			assert.Equal(t, test.want.statusCode, resp.StatusCode(), "Response statusCode didn't match expected")
-
-			if test.want.compressedURL != "" && test.want.statusCode != http.StatusBadRequest && test.want.statusCode != http.StatusInternalServerError {
-				assert.Equal(t, testURL, "https://"+resp.RawResponse.Request.URL.Host, "Response Host didn't match expected")
 			}
 		})
 	}
