@@ -40,12 +40,14 @@ func NewFileStorage(filename string) (*FileStorage, error) {
 }
 
 func (f *FileStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
+	f.mapCash[data.ShortURL] = data.OriginalURL
 	return f.dataProducer.WriteEvent(data)
 }
 
 func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
 	for _, d := range data {
 		if _, exist := f.mapCash[d.ShortURL]; !exist {
+			f.mapCash[d.ShortURL] = d.OriginalURL
 			err := f.dataProducer.WriteEvent(&d)
 			if err != nil {
 				return err
