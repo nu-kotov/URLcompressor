@@ -3,12 +3,14 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"errors"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
+	"github.com/pressly/goose/v3"
 )
 
 type DBStorage struct {
@@ -19,6 +21,8 @@ var ErrConflict = errors.New("data conflict")
 
 var (
 	dbInstance *DBStorage
+	//go:embed migrations/*.sql
+	embedMigrations embed.FS
 )
 
 func NewConnect(connString string) (*DBStorage, error) {
@@ -26,6 +30,17 @@ func NewConnect(connString string) (*DBStorage, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	goose.SetBaseFS(embedMigrations)
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		return nil, err
+	}
+
+	if err := goose.Up(db, "migrations"); err != nil {
+		return nil, err
+	}
+
 	dbInstance = &DBStorage{db}
 
 	return dbInstance, nil
@@ -37,21 +52,6 @@ func (pg *DBStorage) Ping() error {
 
 func (pg *DBStorage) Close() error {
 	return pg.db.Close()
-}
-
-func (pg *DBStorage) CreateTable() error {
-	_, err := pg.db.ExecContext(
-		context.Background(),
-		`CREATE TABLE IF NOT EXISTS urls (
-			short_url      TEXT NOT NULL PRIMARY KEY,
-			original_url   TEXT NOT NULL,
-			correlation_id TEXT
-		);`)
-
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {

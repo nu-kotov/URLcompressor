@@ -23,23 +23,22 @@ func NewStorage(c config.Config) (Storage, error) {
 		}
 
 		return fileStorage, nil
+
 	} else if c.DatabaseConnection != "" {
 		DBStorage, err := NewConnect(c.DatabaseConnection)
 		if err != nil {
 			return nil, err
 		}
 
-		err = DBStorage.CreateTable()
-		if err != nil {
-			return nil, err
-		}
-
 		return DBStorage, nil
+
 	} else {
 		mapStorage, err := NewMapStorage()
 		if err != nil {
 			return nil, err
 		}
+
 		return mapStorage, nil
+
 	}
 }
