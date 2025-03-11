@@ -19,11 +19,11 @@ import (
 )
 
 func TestCompressURL(t *testing.T) {
-	config := config.ParseConfig()
+	config := config.NewConfig()
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := InitService(config, store)
+	service := NewService(config, store)
 	assert.NoError(t, err, "Init service error")
 
 	handler := http.HandlerFunc(service.CompressURL)
@@ -135,7 +135,7 @@ func TestGetShortURL(t *testing.T) {
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := InitService(config, store)
+	service := NewService(config, store)
 
 	handler := http.HandlerFunc(service.GetShortURL)
 	server := httptest.NewServer(handler)
@@ -252,7 +252,7 @@ func TestRedirectByShortURLID(t *testing.T) {
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := InitService(config, store)
+	service := NewService(config, store)
 
 	router := mux.NewRouter()
 	router.HandleFunc(`/`, service.CompressURL)

@@ -21,7 +21,7 @@ type Service struct {
 	Storage storage.Storage
 }
 
-func InitService(config config.Config, storage storage.Storage) *Service {
+func NewService(config config.Config, storage storage.Storage) *Service {
 	var srv Service
 
 	srv.Config = config

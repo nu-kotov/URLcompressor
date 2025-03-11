@@ -11,17 +11,17 @@ import (
 )
 
 func main() {
-	if err := logger.InitLogger("info"); err != nil {
+	if err := logger.NewLogger("info"); err != nil {
 		log.Fatal("Error initialize zap logger: ", err)
 	}
 
-	config := config.ParseConfig()
+	config := config.NewConfig()
 	store, err := storage.NewStorage(config)
 	if err != nil {
 		log.Fatal("Error initialize storage: ", err)
 	}
 
-	service := handler.InitService(config, store)
+	service := handler.NewService(config, store)
 	router := NewRouter(*service)
 
 	defer service.Storage.Close()

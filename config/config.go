@@ -12,7 +12,7 @@ type Config struct {
 	DatabaseConnection string
 }
 
-func ParseConfig() Config {
+func NewConfig() Config {
 	var config Config
 
 	flag.StringVar(&config.RunAddr, "a", "localhost:8080", "address and port to run server")
