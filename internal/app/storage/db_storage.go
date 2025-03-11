@@ -55,6 +55,9 @@ func (pg *DBStorage) CreateTable() error {
 }
 
 func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
+
+	sql := `INSERT INTO urls (short_url, original_url) VALUES ($1, $2);`
+
 	tx, err := pg.db.Begin()
 	if err != nil {
 		return err
@@ -62,7 +65,7 @@ func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) 
 
 	_, err = tx.ExecContext(
 		ctx,
-		`INSERT INTO urls (short_url, original_url) VALUES ($1, $2);`,
+		sql,
 		data.ShortURL,
 		data.OriginalURL,
 	)
@@ -82,6 +85,9 @@ func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) 
 }
 
 func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
+
+	sql := `INSERT INTO urls (short_url, original_url, correlation_id) VALUES ($1, $2, $3);`
+
 	tx, err := pg.db.Begin()
 	if err != nil {
 		return err
@@ -90,7 +96,7 @@ func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLs
 	for _, d := range data {
 		_, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO urls (short_url, original_url, correlation_id) VALUES ($1, $2, $3);`,
+			sql,
 			d.ShortURL,
 			d.OriginalURL,
 			d.CorrelationID,
@@ -113,9 +119,11 @@ func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLs
 func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error) {
 	var originalURL string
 
+	sql := `SELECT original_url from urls WHERE short_url = $1`
+
 	row := pg.db.QueryRowContext(
 		ctx,
-		`SELECT original_url from urls WHERE short_url = $1`,
+		sql,
 		shortURL,
 	)
 
