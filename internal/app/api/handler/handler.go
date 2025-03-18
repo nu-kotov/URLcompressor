@@ -17,44 +17,17 @@ import (
 )
 
 type Service struct {
-	config      config.Config
-	mapStorage  map[string]string
-	fileStorage *storage.FileStorage
-	DBStorage   *storage.DBStorage
+	Config  config.Config
+	Storage storage.Storage
 }
 
-func InitService(config config.Config) (*Service, error) {
+func NewService(config config.Config, storage storage.Storage) *Service {
 	var srv Service
-	var err error
 
-	srv.config = config
-	srv.mapStorage = make(map[string]string)
+	srv.Config = config
+	srv.Storage = storage
 
-	if config.FileStoragePath != "" {
-		srv.fileStorage, err = storage.NewFileStorage(config.FileStoragePath)
-		if err != nil {
-			return nil, err
-		}
-
-		srv.mapStorage, err = srv.fileStorage.InitMapStorage()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if config.DatabaseConnection != "" {
-		srv.DBStorage, err = storage.NewConnect(config.DatabaseConnection)
-		if err != nil {
-			return nil, err
-		}
-
-		err = srv.DBStorage.CreateTable()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &srv, nil
+	return &srv
 }
 
 func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request) {
@@ -92,39 +65,30 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 				resp,
 				models.GetShortURLsBatchResponse{
 					CorrelationID: row.CorrelationID,
-					ShortURL:      srv.config.BaseURL + "/" + shortID,
+					ShortURL:      srv.Config.BaseURL + "/" + shortID,
 				},
 			)
 
-			if _, exist := srv.mapStorage[shortID]; !exist {
+			strBody := string(row.OriginalURL)
 
-				strBody := string(row.OriginalURL)
-				srv.mapStorage[shortID] = strBody
-
-				event := models.URLsData{
-					UUID:          uuid.New().String(),
-					ShortURL:      shortID,
-					OriginalURL:   strBody,
-					CorrelationID: row.CorrelationID,
-				}
-
-				if srv.config.FileStoragePath != "" {
-					srv.fileStorage.ProduceEvent(&event)
-				}
-				rowsBatch = append(rowsBatch, event)
+			event := models.URLsData{
+				UUID:          uuid.New().String(),
+				ShortURL:      shortID,
+				OriginalURL:   strBody,
+				CorrelationID: row.CorrelationID,
 			}
+			rowsBatch = append(rowsBatch, event)
 		}
 		respJSON, err := json.Marshal(resp)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 		}
-		if srv.config.DatabaseConnection != "" {
-			err := srv.DBStorage.InsertURLsDataBatch(req.Context(), rowsBatch)
-			if err != nil {
-				logger.Log.Info(err.Error())
-				http.Error(res, "Inserting to db error", http.StatusInternalServerError)
-				return
-			}
+
+		err = srv.Storage.InsertURLsDataBatch(req.Context(), rowsBatch)
+		if err != nil {
+			logger.Log.Info(err.Error())
+			http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+			return
 		}
 
 		res.Header().Set("Content-Type", "application/json")
@@ -164,7 +128,7 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		resp := models.ShortenURLResponse{Result: srv.config.BaseURL + "/" + shortID}
+		resp := models.ShortenURLResponse{Result: srv.Config.BaseURL + "/" + shortID}
 		respJSON, err := json.Marshal(resp)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
@@ -173,28 +137,18 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 		strBody := string(jsonBody.URL)
 		event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
 
-		if _, exist := srv.mapStorage[shortID]; !exist {
+		err = srv.Storage.InsertURLsData(req.Context(), &event)
 
-			srv.mapStorage[shortID] = strBody
-
-			if srv.config.FileStoragePath != "" {
-				srv.fileStorage.ProduceEvent(&event)
-			}
-		}
-
-		if srv.config.DatabaseConnection != "" {
-			err := srv.DBStorage.InsertURLsData(req.Context(), &event)
-			if err != nil {
-				if errors.Is(err, storage.ErrConflict) {
-					res.Header().Set("Content-Type", "application/json")
-					res.WriteHeader(http.StatusConflict)
-					res.Write(respJSON)
-					return
-				}
-				logger.Log.Info(err.Error())
-				http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+		if err != nil {
+			if errors.Is(err, storage.ErrConflict) {
+				res.Header().Set("Content-Type", "application/json")
+				res.WriteHeader(http.StatusConflict)
+				res.Write(respJSON)
 				return
 			}
+			logger.Log.Info(err.Error())
+			http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+			return
 		}
 
 		res.Header().Set("Content-Type", "application/json")
@@ -232,33 +186,22 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 		strBody := string(body)
 		event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
 
-		if _, exist := srv.mapStorage[shortID]; !exist {
-
-			srv.mapStorage[shortID] = strBody
-
-			if srv.config.FileStoragePath != "" {
-				srv.fileStorage.ProduceEvent(&event)
-			}
-		}
-
-		if srv.config.DatabaseConnection != "" {
-			err := srv.DBStorage.InsertURLsData(req.Context(), &event)
-			if err != nil {
-				if errors.Is(err, storage.ErrConflict) {
-					res.Header().Set("Content-Type", "text/plain")
-					res.WriteHeader(http.StatusConflict)
-					io.WriteString(res, string(srv.config.BaseURL+"/"+shortID))
-					return
-				}
-				logger.Log.Info(err.Error())
-				http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+		err = srv.Storage.InsertURLsData(req.Context(), &event)
+		if err != nil {
+			if errors.Is(err, storage.ErrConflict) {
+				res.Header().Set("Content-Type", "text/plain")
+				res.WriteHeader(http.StatusConflict)
+				io.WriteString(res, string(srv.Config.BaseURL+"/"+shortID))
 				return
 			}
+			logger.Log.Info(err.Error())
+			http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+			return
 		}
 
 		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusCreated)
-		io.WriteString(res, string(srv.config.BaseURL+"/"+shortID))
+		io.WriteString(res, string(srv.Config.BaseURL+"/"+shortID))
 
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
@@ -272,21 +215,14 @@ func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Requ
 		params := mux.Vars(req)
 		shortURLID := params["id"]
 
-		if srv.config.DatabaseConnection != "" {
-			originalURL, err := srv.DBStorage.SelectOriginalURLByShortURL(req.Context(), shortURLID)
-			if err != nil {
-				logger.Log.Info(err.Error())
-				http.Error(res, "URLs select error", http.StatusInternalServerError)
-				return
-			}
-			res.Header().Set("Location", originalURL)
-			res.WriteHeader(http.StatusTemporaryRedirect)
-		} else if originalURL, exists := srv.mapStorage[shortURLID]; exists {
-			res.Header().Set("Location", originalURL)
-			res.WriteHeader(http.StatusTemporaryRedirect)
-		} else {
-			res.WriteHeader(http.StatusBadRequest)
+		originalURL, err := srv.Storage.SelectOriginalURLByShortURL(req.Context(), shortURLID)
+		if err != nil {
+			logger.Log.Info(err.Error())
+			http.Error(res, "URLs select error", http.StatusInternalServerError)
+			return
 		}
+		res.Header().Set("Location", originalURL)
+		res.WriteHeader(http.StatusTemporaryRedirect)
 
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
@@ -295,15 +231,11 @@ func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Requ
 
 func (srv *Service) PingDB(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodGet {
-		if srv.config.DatabaseConnection == "" {
+		err := srv.Storage.Ping()
+		if err != nil {
 			res.WriteHeader(http.StatusInternalServerError)
 		} else {
-			err := srv.DBStorage.Ping()
-			if err != nil {
-				res.WriteHeader(http.StatusInternalServerError)
-			} else {
-				res.WriteHeader(http.StatusOK)
-			}
+			res.WriteHeader(http.StatusOK)
 		}
 	} else {
 		res.WriteHeader(http.StatusBadRequest)

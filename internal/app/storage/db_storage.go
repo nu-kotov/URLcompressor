@@ -3,12 +3,14 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"errors"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
+	"github.com/pressly/goose/v3"
 )
 
 type DBStorage struct {
@@ -19,6 +21,8 @@ var ErrConflict = errors.New("data conflict")
 
 var (
 	dbInstance *DBStorage
+	//go:embed migrations/*.sql
+	embedMigrations embed.FS
 )
 
 func NewConnect(connString string) (*DBStorage, error) {
@@ -26,6 +30,17 @@ func NewConnect(connString string) (*DBStorage, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	goose.SetBaseFS(embedMigrations)
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		return nil, err
+	}
+
+	if err := goose.Up(db, "migrations"); err != nil {
+		return nil, err
+	}
+
 	dbInstance = &DBStorage{db}
 
 	return dbInstance, nil
@@ -35,26 +50,14 @@ func (pg *DBStorage) Ping() error {
 	return pg.db.Ping()
 }
 
-func (pg *DBStorage) Close() {
-	pg.db.Close()
-}
-
-func (pg *DBStorage) CreateTable() error {
-	_, err := pg.db.ExecContext(
-		context.Background(),
-		`CREATE TABLE IF NOT EXISTS urls (
-			short_url      TEXT NOT NULL PRIMARY KEY,
-			original_url   TEXT NOT NULL,
-			correlation_id TEXT
-		);`)
-
-	if err != nil {
-		return err
-	}
-	return nil
+func (pg *DBStorage) Close() error {
+	return pg.db.Close()
 }
 
 func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
+
+	sql := `INSERT INTO urls (short_url, original_url) VALUES ($1, $2);`
+
 	tx, err := pg.db.Begin()
 	if err != nil {
 		return err
@@ -62,7 +65,7 @@ func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) 
 
 	_, err = tx.ExecContext(
 		ctx,
-		`INSERT INTO urls (short_url, original_url) VALUES ($1, $2);`,
+		sql,
 		data.ShortURL,
 		data.OriginalURL,
 	)
@@ -82,6 +85,9 @@ func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) 
 }
 
 func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
+
+	sql := `INSERT INTO urls (short_url, original_url, correlation_id) VALUES ($1, $2, $3);`
+
 	tx, err := pg.db.Begin()
 	if err != nil {
 		return err
@@ -90,7 +96,7 @@ func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLs
 	for _, d := range data {
 		_, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO urls (short_url, original_url, correlation_id) VALUES ($1, $2, $3);`,
+			sql,
 			d.ShortURL,
 			d.OriginalURL,
 			d.CorrelationID,
@@ -113,9 +119,11 @@ func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLs
 func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error) {
 	var originalURL string
 
+	sql := `SELECT original_url from urls WHERE short_url = $1`
+
 	row := pg.db.QueryRowContext(
 		ctx,
-		`SELECT original_url from urls WHERE short_url = $1`,
+		sql,
 		shortURL,
 	)
 

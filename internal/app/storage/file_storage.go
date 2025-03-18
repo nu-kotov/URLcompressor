@@ -2,15 +2,18 @@ package storage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 )
 
 type FileStorage struct {
-	DataProducer *Producer
-	DataConsumer *Consumer
+	dataProducer *Producer
+	dataConsumer *Consumer
+	mapCash      map[string]string
 }
 
 func NewFileStorage(filename string) (*FileStorage, error) {
@@ -18,37 +21,64 @@ func NewFileStorage(filename string) (*FileStorage, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	consumer, err := newConsumer(filename)
 	if err != nil {
 		return nil, err
 	}
+
+	cash, err := consumer.fillMapCash()
+	if err != nil {
+		return nil, err
+	}
+
 	return &FileStorage{
-		DataProducer: producer,
-		DataConsumer: consumer,
+		dataProducer: producer,
+		dataConsumer: consumer,
+		mapCash:      cash,
 	}, nil
 }
 
-func (f *FileStorage) InitMapStorage() (map[string]string, error) {
-
-	mapStorage := make(map[string]string)
-	for {
-		fileStr, err := f.DataConsumer.ReadEvent()
-		if err != nil {
-			return nil, err
-		}
-		if fileStr == nil {
-			break
-		}
-		mapStorage[fileStr.ShortURL] = fileStr.OriginalURL
-
-	}
-	f.DataConsumer.Close()
-
-	return mapStorage, nil
+func (f *FileStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
+	f.mapCash[data.ShortURL] = data.OriginalURL
+	return f.dataProducer.WriteEvent(data)
 }
 
-func (f *FileStorage) ProduceEvent(event *models.URLsData) error {
-	return f.DataProducer.WriteEvent(event)
+func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
+	for _, d := range data {
+		if _, exist := f.mapCash[d.ShortURL]; !exist {
+			f.mapCash[d.ShortURL] = d.OriginalURL
+			err := f.dataProducer.WriteEvent(&d)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (f *FileStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error) {
+	if _, exist := f.mapCash[shortURL]; !exist {
+		return "", errors.New("SHORT URL NOT EXIST")
+	}
+	return f.mapCash[shortURL], nil
+}
+
+func (f *FileStorage) Ping() error {
+	return nil
+}
+
+func (f *FileStorage) Close() error {
+	err := f.dataConsumer.file.Close()
+	if err != nil {
+		return err
+	}
+
+	err = f.dataProducer.file.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type Producer struct {
@@ -116,6 +146,24 @@ func (c *Consumer) ReadEvent() (*models.URLsData, error) {
 	}
 
 	return &event, nil
+}
+
+func (c *Consumer) fillMapCash() (map[string]string, error) {
+
+	mapCash := make(map[string]string)
+	for {
+		fileStr, err := c.ReadEvent()
+		if err != nil {
+			return nil, err
+		}
+		if fileStr == nil {
+			break
+		}
+		mapCash[fileStr.ShortURL] = fileStr.OriginalURL
+
+	}
+
+	return mapCash, nil
 }
 
 func (c *Consumer) Close() error {
