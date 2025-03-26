@@ -12,6 +12,7 @@ func NewRouter(service handler.Service) *mux.Router {
 	middlewareStack := middleware.Chain(
 		middleware.RequestCompressor,
 		middleware.RequestLogger,
+		middleware.RequestSession,
 	)
 
 	router.HandleFunc(`/ping`, service.PingDB)
@@ -19,6 +20,7 @@ func NewRouter(service handler.Service) *mux.Router {
 	router.HandleFunc(`/api/shorten`, middlewareStack(service.GetShortURL))
 	router.HandleFunc(`/{id:\w+}`, middlewareStack(service.RedirectByShortURLID))
 	router.HandleFunc(`/api/shorten/batch`, middlewareStack(service.GetShortURLsBatch))
+	router.HandleFunc(`/api/user/urls`, middlewareStack(service.GetUserURLs))
 
 	return router
 }

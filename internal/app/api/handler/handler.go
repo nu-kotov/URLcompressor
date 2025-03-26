@@ -30,6 +30,40 @@ func NewService(config config.Config, storage storage.Storage) *Service {
 	return &srv
 }
 
+func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodGet {
+		_, err := req.Cookie("token")
+
+		if err != nil {
+			res.WriteHeader(http.StatusUnauthorized)
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		if data, err := srv.Storage.SelectURLs(req.Context()); data != nil {
+
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusBadRequest)
+			}
+
+			resp, err := json.Marshal(data)
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusBadRequest)
+			}
+
+			_, err = res.Write(resp)
+
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusBadRequest)
+			}
+
+		} else {
+			res.WriteHeader(http.StatusNoContent)
+		}
+	} else {
+		res.WriteHeader(http.StatusBadRequest)
+	}
+}
+
 func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 		var jsonBody []models.GetShortURLsBatchRequest

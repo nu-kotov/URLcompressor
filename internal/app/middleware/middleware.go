@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nu-kotov/URLcompressor/internal/app/auth"
 	"github.com/nu-kotov/URLcompressor/internal/app/compress"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"go.uber.org/zap"
@@ -90,4 +91,27 @@ func RequestCompressor(h http.HandlerFunc) http.HandlerFunc {
 
 		h.ServeHTTP(ow, r)
 	}
+}
+
+func RequestSession(h http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, err := r.Cookie("token")
+		if err != nil && r.Method == http.MethodPost {
+			value, err := auth.BuildJWTString()
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			cookie := &http.Cookie{
+				Name:     "token",
+				Value:    value,
+				HttpOnly: true,
+			}
+			r.AddCookie(cookie)
+			http.SetCookie(w, cookie)
+			h.ServeHTTP(w, r)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }

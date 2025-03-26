@@ -57,6 +57,27 @@ func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URL
 	return nil
 }
 
+func (f *FileStorage) SelectURLs(ctx context.Context) ([]models.URLsData, error) {
+	var data []models.URLsData
+
+	for {
+		fileStr, err := f.dataConsumer.ReadEvent()
+		if err != nil {
+			return nil, err
+		}
+		if fileStr == nil {
+			break
+		}
+		data = append(data, models.URLsData{ShortURL: fileStr.ShortURL, OriginalURL: fileStr.OriginalURL})
+	}
+
+	if len(data) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return data, nil
+}
+
 func (f *FileStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error) {
 	if _, exist := f.mapCash[shortURL]; !exist {
 		return "", errors.New("SHORT URL NOT EXIST")

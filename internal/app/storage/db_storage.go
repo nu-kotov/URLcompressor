@@ -18,6 +18,7 @@ type DBStorage struct {
 }
 
 var ErrConflict = errors.New("data conflict")
+var ErrNotFound = errors.New("data not found")
 
 var (
 	dbInstance *DBStorage
@@ -133,4 +134,33 @@ func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL s
 	}
 
 	return originalURL, nil
+}
+
+func (pg *DBStorage) SelectURLs(ctx context.Context) ([]models.URLsData, error) {
+	var data []models.URLsData
+
+	query := `SELECT short_url, original_url from urls`
+
+	rows, err := pg.db.Query(query)
+
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	for rows.Next() {
+		var shortURL, originalURL string
+
+		err := rows.Scan(&shortURL, &originalURL)
+
+		if err != nil {
+			return nil, err
+		}
+
+		data = append(data, models.URLsData{ShortURL: shortURL, OriginalURL: originalURL})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }

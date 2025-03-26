@@ -11,6 +11,7 @@ type Storage interface {
 	InsertURLsData(ctx context.Context, data *models.URLsData) error
 	InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error
 	SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error)
+	SelectURLs(ctx context.Context) ([]models.URLsData, error)
 	Ping() error
 	Close() error
 }
