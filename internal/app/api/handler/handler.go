@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/nu-kotov/URLcompressor/config"
@@ -33,6 +35,8 @@ func NewService(config config.Config, storage storage.Storage) *Service {
 
 func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodGet {
+
+		fmt.Println("Вызывается GetUserURLs")
 
 		token, err := req.Cookie("token")
 
@@ -73,6 +77,8 @@ func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 
 func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
+
+		fmt.Println("Вызывается GetShortURLsBatch")
 
 		token, err := req.Cookie("token")
 
@@ -229,6 +235,8 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
 
+		fmt.Println("Вызывается CompressURL")
+
 		token, err := req.Cookie("token")
 
 		if err != nil {
@@ -287,6 +295,8 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodGet {
+
+		fmt.Println("Вызывается RedirectByShortURLID")
 
 		params := mux.Vars(req)
 		shortURLID := params["id"]
