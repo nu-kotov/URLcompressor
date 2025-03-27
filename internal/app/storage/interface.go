@@ -11,14 +11,14 @@ type Storage interface {
 	InsertURLsData(ctx context.Context, data *models.URLsData) error
 	InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error
 	SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error)
-	SelectURLs(ctx context.Context) ([]models.URLsData, error)
+	SelectURLs(ctx context.Context, userID string) ([]models.URLsData, error)
 	Ping() error
 	Close() error
 }
 
 func NewStorage(c config.Config) (Storage, error) {
 	if c.FileStoragePath != "" {
-		fileStorage, err := NewFileStorage(c.FileStoragePath)
+		fileStorage, err := NewFileStorage(c.FileStoragePath, c.BaseURL)
 		if err != nil {
 			return nil, err
 		}
@@ -26,7 +26,7 @@ func NewStorage(c config.Config) (Storage, error) {
 		return fileStorage, nil
 
 	} else if c.DatabaseConnection != "" {
-		DBStorage, err := NewConnect(c.DatabaseConnection)
+		DBStorage, err := NewConnect(c.DatabaseConnection, c.BaseURL)
 		if err != nil {
 			return nil, err
 		}

@@ -96,7 +96,7 @@ func RequestCompressor(h http.HandlerFunc) http.HandlerFunc {
 func RequestSession(h http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := r.Cookie("token")
-		if err != nil {
+		if err != nil && r.Method == http.MethodPost {
 			value, err := auth.BuildJWTString()
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)

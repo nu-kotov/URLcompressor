@@ -16,7 +16,7 @@ type FileStorage struct {
 	mapCash      map[string]string
 }
 
-func NewFileStorage(filename string) (*FileStorage, error) {
+func NewFileStorage(filename string, baseURL string) (*FileStorage, error) {
 	producer, err := newProducer(filename)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URL
 	return nil
 }
 
-func (f *FileStorage) SelectURLs(ctx context.Context) ([]models.URLsData, error) {
+func (f *FileStorage) SelectURLs(ctx context.Context, userID string) ([]models.URLsData, error) {
 	var data []models.URLsData
 
 	for {

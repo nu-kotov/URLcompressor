@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -14,7 +15,8 @@ import (
 )
 
 type DBStorage struct {
-	db *sql.DB
+	db      *sql.DB
+	baseURL string
 }
 
 var ErrConflict = errors.New("data conflict")
@@ -26,7 +28,7 @@ var (
 	embedMigrations embed.FS
 )
 
-func NewConnect(connString string) (*DBStorage, error) {
+func NewConnect(connString string, baseURL string) (*DBStorage, error) {
 	db, err := sql.Open("pgx", connString)
 	if err != nil {
 		return nil, err
@@ -42,7 +44,7 @@ func NewConnect(connString string) (*DBStorage, error) {
 		return nil, err
 	}
 
-	dbInstance = &DBStorage{db}
+	dbInstance = &DBStorage{db, baseURL}
 
 	return dbInstance, nil
 }
@@ -57,7 +59,7 @@ func (pg *DBStorage) Close() error {
 
 func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
 
-	sql := `INSERT INTO urls (short_url, original_url) VALUES ($1, $2);`
+	sql := `INSERT INTO urls (short_url, original_url, user_id) VALUES ($1, $2, $3);`
 
 	tx, err := pg.db.Begin()
 	if err != nil {
@@ -69,6 +71,7 @@ func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) 
 		sql,
 		data.ShortURL,
 		data.OriginalURL,
+		data.UserID,
 	)
 
 	if err != nil {
@@ -87,7 +90,7 @@ func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) 
 
 func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
 
-	sql := `INSERT INTO urls (short_url, original_url, correlation_id) VALUES ($1, $2, $3);`
+	sql := `INSERT INTO urls (short_url, original_url, correlation_id, user_id) VALUES ($1, $2, $3, $4);`
 
 	tx, err := pg.db.Begin()
 	if err != nil {
@@ -101,6 +104,7 @@ func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLs
 			d.ShortURL,
 			d.OriginalURL,
 			d.CorrelationID,
+			d.UserID,
 		)
 		if err != nil {
 			tx.Rollback()
@@ -136,12 +140,12 @@ func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL s
 	return originalURL, nil
 }
 
-func (pg *DBStorage) SelectURLs(ctx context.Context) ([]models.URLsData, error) {
+func (pg *DBStorage) SelectURLs(ctx context.Context, userID string) ([]models.URLsData, error) {
 	var data []models.URLsData
 
-	query := `SELECT short_url, original_url from urls`
+	query := `SELECT short_url, original_url from urls WHERE user_id=&1`
 
-	rows, err := pg.db.Query(query)
+	rows, err := pg.db.Query(query, userID)
 
 	if err != nil {
 		return nil, ErrNotFound
@@ -156,7 +160,7 @@ func (pg *DBStorage) SelectURLs(ctx context.Context) ([]models.URLsData, error) 
 			return nil, err
 		}
 
-		data = append(data, models.URLsData{ShortURL: shortURL, OriginalURL: originalURL})
+		data = append(data, models.URLsData{ShortURL: fmt.Sprintf("%s/%s", pg.baseURL, shortURL), OriginalURL: originalURL})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

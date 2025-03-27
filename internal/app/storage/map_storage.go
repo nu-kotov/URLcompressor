@@ -40,7 +40,7 @@ func (ms *MapStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL 
 	return ms.mapStorage[shortURL], nil
 }
 
-func (ms *MapStorage) SelectURLs(ctx context.Context) ([]models.URLsData, error) {
+func (ms *MapStorage) SelectURLs(ctx context.Context, userID string) ([]models.URLsData, error) {
 	var data []models.URLsData
 
 	for su, ou := range ms.mapStorage {
