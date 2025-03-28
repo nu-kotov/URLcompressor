@@ -10,8 +10,10 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/gorilla/mux"
+
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
+	"github.com/nu-kotov/URLcompressor/internal/app/middleware"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
 	"github.com/sqids/sqids-go"
@@ -26,7 +28,13 @@ func TestCompressURL(t *testing.T) {
 	service := NewService(config, store)
 	assert.NoError(t, err, "Init service error")
 
-	handler := http.HandlerFunc(service.CompressURL)
+	middlewareStack := middleware.Chain(
+		middleware.RequestCompressor,
+		middleware.RequestLogger,
+		middleware.RequestSession,
+	)
+
+	handler := http.HandlerFunc(middlewareStack(service.CompressURL))
 	server := httptest.NewServer(handler)
 
 	defer server.Close()
@@ -137,7 +145,13 @@ func TestGetShortURL(t *testing.T) {
 
 	service := NewService(config, store)
 
-	handler := http.HandlerFunc(service.GetShortURL)
+	middlewareStack := middleware.Chain(
+		middleware.RequestCompressor,
+		middleware.RequestLogger,
+		middleware.RequestSession,
+	)
+
+	handler := http.HandlerFunc(middlewareStack(service.GetShortURL))
 	server := httptest.NewServer(handler)
 
 	defer server.Close()
@@ -255,8 +269,15 @@ func TestRedirectByShortURLID(t *testing.T) {
 	service := NewService(config, store)
 
 	router := mux.NewRouter()
-	router.HandleFunc(`/`, service.CompressURL)
-	router.HandleFunc(`/{id:\w+}`, service.RedirectByShortURLID)
+
+	middlewareStack := middleware.Chain(
+		middleware.RequestCompressor,
+		middleware.RequestLogger,
+		middleware.RequestSession,
+	)
+
+	router.HandleFunc(`/`, middlewareStack(service.CompressURL))
+	router.HandleFunc(`/{id:\w+}`, middlewareStack(service.RedirectByShortURLID))
 	server := httptest.NewServer(router)
 
 	parsedURL, err := url.Parse(server.URL)

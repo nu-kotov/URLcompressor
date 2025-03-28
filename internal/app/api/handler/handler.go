@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
+	"github.com/nu-kotov/URLcompressor/internal/app/auth"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
@@ -30,8 +31,60 @@ func NewService(config config.Config, storage storage.Storage) *Service {
 	return &srv
 }
 
+func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodGet {
+
+		token, err := req.Cookie("token")
+
+		if err != nil {
+			res.WriteHeader(http.StatusUnauthorized)
+		}
+
+		userID, err := auth.GetUserID(token.Value)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		if data, err := srv.Storage.SelectURLs(req.Context(), userID); data != nil {
+
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusBadRequest)
+			}
+
+			resp, err := json.Marshal(data)
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusBadRequest)
+			}
+
+			_, err = res.Write(resp)
+
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusBadRequest)
+			}
+
+		} else {
+			res.WriteHeader(http.StatusNoContent)
+		}
+	} else {
+		res.WriteHeader(http.StatusBadRequest)
+	}
+}
+
 func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
+
+		token, err := req.Cookie("token")
+
+		if err != nil {
+			res.WriteHeader(http.StatusUnauthorized)
+		}
+
+		userID, err := auth.GetUserID(token.Value)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+		}
+
 		var jsonBody []models.GetShortURLsBatchRequest
 
 		body, err := io.ReadAll(req.Body)
@@ -76,6 +129,7 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 				ShortURL:      shortID,
 				OriginalURL:   strBody,
 				CorrelationID: row.CorrelationID,
+				UserID:        userID,
 			}
 			rowsBatch = append(rowsBatch, event)
 		}
@@ -102,6 +156,17 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
+
+		token, err := req.Cookie("token")
+
+		if err != nil {
+			res.WriteHeader(http.StatusUnauthorized)
+		}
+
+		userID, err := auth.GetUserID(token.Value)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+		}
 
 		var jsonBody models.ShortenURLRequest
 
@@ -135,7 +200,7 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 		}
 
 		strBody := string(jsonBody.URL)
-		event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
+		event := models.URLsData{UserID: userID, UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
 
 		err = srv.Storage.InsertURLsData(req.Context(), &event)
 
@@ -164,6 +229,17 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
 
+		token, err := req.Cookie("token")
+
+		if err != nil {
+			res.WriteHeader(http.StatusUnauthorized)
+		}
+
+		userID, err := auth.GetUserID(token.Value)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+		}
+
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			http.Error(res, "Invalid body", http.StatusBadRequest)
@@ -184,7 +260,7 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 		}
 
 		strBody := string(body)
-		event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
+		event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody, UserID: userID}
 
 		err = srv.Storage.InsertURLsData(req.Context(), &event)
 		if err != nil {

@@ -18,7 +18,13 @@ type GetShortURLsBatchResponse struct {
 	ShortURL      string `json:"short_url"`
 }
 
+type GetUserURLsResponse struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
 type URLsData struct {
+	UserID        string `json:"user_id"`
 	UUID          string `json:"uuid"`
 	ShortURL      string `json:"short_url"`
 	OriginalURL   string `json:"original_url"`
