@@ -49,6 +49,7 @@ func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 		}
 
+		fmt.Println("userID!!!", userID)
 		res.Header().Set("Content-Type", "application/json")
 		if data, err := srv.Storage.SelectURLs(req.Context(), userID); data != nil {
 

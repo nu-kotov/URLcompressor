@@ -140,10 +140,10 @@ func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL s
 	return originalURL, nil
 }
 
-func (pg *DBStorage) SelectURLs(ctx context.Context, userID string) ([]models.URLsData, error) {
-	var data []models.URLsData
+func (pg *DBStorage) SelectURLs(ctx context.Context, userID string) ([]models.GetUserURLsResponse, error) {
+	var data []models.GetUserURLsResponse
 
-	query := `SELECT short_url, original_url from urls WHERE user_id=&1`
+	query := `SELECT short_url, original_url from urls WHERE user_id = $1`
 
 	rows, err := pg.db.Query(query, userID)
 
@@ -160,7 +160,10 @@ func (pg *DBStorage) SelectURLs(ctx context.Context, userID string) ([]models.UR
 			return nil, err
 		}
 
-		data = append(data, models.URLsData{ShortURL: fmt.Sprintf("%s/%s", pg.baseURL, shortURL), OriginalURL: originalURL})
+		data = append(data, models.GetUserURLsResponse{
+			ShortURL:    fmt.Sprintf("%s/%s", pg.baseURL, shortURL),
+			OriginalURL: originalURL,
+		})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

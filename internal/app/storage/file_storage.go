@@ -57,8 +57,8 @@ func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URL
 	return nil
 }
 
-func (f *FileStorage) SelectURLs(ctx context.Context, userID string) ([]models.URLsData, error) {
-	var data []models.URLsData
+func (f *FileStorage) SelectURLs(ctx context.Context, userID string) ([]models.GetUserURLsResponse, error) {
+	var data []models.GetUserURLsResponse
 
 	for {
 		fileStr, err := f.dataConsumer.ReadEvent()
@@ -68,7 +68,7 @@ func (f *FileStorage) SelectURLs(ctx context.Context, userID string) ([]models.U
 		if fileStr == nil {
 			break
 		}
-		data = append(data, models.URLsData{ShortURL: fileStr.ShortURL, OriginalURL: fileStr.OriginalURL})
+		data = append(data, models.GetUserURLsResponse{ShortURL: fileStr.ShortURL, OriginalURL: fileStr.OriginalURL})
 	}
 
 	if len(data) == 0 {
