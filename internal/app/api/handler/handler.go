@@ -31,43 +31,67 @@ func NewService(config config.Config, storage storage.Storage) *Service {
 	return &srv
 }
 
+func (srv *Service) DeleteUserURLs(res http.ResponseWriter, req *http.Request) {
+	token, err := req.Cookie("token")
+
+	if err != nil {
+		res.WriteHeader(http.StatusUnauthorized)
+	}
+
+	userID, err := auth.GetUserID(token.Value)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var urls []string
+	if err = json.Unmarshal(body, &urls); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	go srv.Storage.DeleteURLs(req.Context(), userID, urls)
+
+	res.WriteHeader(http.StatusAccepted)
+}
+
 func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
-	if req.Method == http.MethodGet {
 
-		token, err := req.Cookie("token")
+	token, err := req.Cookie("token")
 
-		if err != nil {
-			res.WriteHeader(http.StatusUnauthorized)
-		}
+	if err != nil {
+		res.WriteHeader(http.StatusUnauthorized)
+	}
 
-		userID, err := auth.GetUserID(token.Value)
+	userID, err := auth.GetUserID(token.Value)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	if data, err := srv.Storage.SelectURLs(req.Context(), userID); data != nil {
+
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 		}
 
-		res.Header().Set("Content-Type", "application/json")
-		if data, err := srv.Storage.SelectURLs(req.Context(), userID); data != nil {
-
-			if err != nil {
-				http.Error(res, err.Error(), http.StatusBadRequest)
-			}
-
-			resp, err := json.Marshal(data)
-			if err != nil {
-				http.Error(res, err.Error(), http.StatusBadRequest)
-			}
-
-			_, err = res.Write(resp)
-
-			if err != nil {
-				http.Error(res, err.Error(), http.StatusBadRequest)
-			}
-
-		} else {
-			res.WriteHeader(http.StatusNoContent)
+		resp, err := json.Marshal(data)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
 		}
+
+		_, err = res.Write(resp)
+
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+		}
+
 	} else {
-		res.WriteHeader(http.StatusBadRequest)
+		res.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -297,9 +321,14 @@ func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Requ
 			http.Error(res, "URLs select error", http.StatusInternalServerError)
 			return
 		}
+
+		if originalURL == "deleted" {
+			res.WriteHeader(http.StatusGone)
+			return
+		}
+
 		res.Header().Set("Location", originalURL)
 		res.WriteHeader(http.StatusTemporaryRedirect)
-
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
 	}

@@ -54,6 +54,10 @@ func (ms *MapStorage) SelectURLs(ctx context.Context, userID string) ([]models.G
 	return data, nil
 }
 
+func (ms *MapStorage) DeleteURLs(ctx context.Context, userID string, shortURLs []string) error {
+	return nil
+}
+
 func (ms *MapStorage) Ping() error {
 	return nil
 }

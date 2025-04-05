@@ -6,6 +6,9 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"sync"
+
+	"github.com/lib/pq"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -121,10 +124,78 @@ func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLs
 	return tx.Commit()
 }
 
+func (pg *DBStorage) DeleteURLs(ctx context.Context, userID string, shortURLs []string) error {
+
+	sql := `UPDATE urls SET is_deleted = TRUE WHERE short_url = any($1) and user_id = $2;`
+
+	ch := make(chan string, len(shortURLs))
+	for _, url := range shortURLs {
+		ch <- url
+	}
+	close(ch)
+
+	const workers = 4
+	var wg sync.WaitGroup
+	results := make(chan []string, workers)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var batch []string
+			for url := range ch {
+				batch = append(batch, url)
+				if len(batch) >= 100 {
+					results <- batch
+					batch = nil
+				}
+			}
+			if len(batch) > 0 {
+				results <- batch
+			}
+		}()
+	}
+
+	go func() {
+		for i := 0; i < workers; i++ {
+			results <- nil
+		}
+		wg.Wait()
+		close(results)
+	}()
+
+	tx, err := pg.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for batch := range results {
+		if batch == nil {
+			continue
+		}
+		_, err = tx.Exec(sql, pq.Array(batch), userID)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error) {
 	var originalURL string
+	var isDeleted bool
 
-	sql := `SELECT original_url from urls WHERE short_url = $1`
+	sql := `SELECT original_url, is_deleted from urls WHERE short_url = $1`
 
 	row := pg.db.QueryRowContext(
 		ctx,
@@ -132,7 +203,10 @@ func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL s
 		shortURL,
 	)
 
-	err := row.Scan(&originalURL)
+	err := row.Scan(&originalURL, &isDeleted)
+	if isDeleted {
+		return "deleted", nil
+	}
 	if err != nil {
 		return "", err
 	}
