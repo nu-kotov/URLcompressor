@@ -44,7 +44,7 @@ func (f *FileStorage) InsertURLsData(ctx context.Context, data *models.URLsData)
 	return f.dataProducer.WriteEvent(data)
 }
 
-func (f *FileStorage) DeleteURLs(ctx context.Context, userID string, shortURLs []string) error {
+func (f *FileStorage) DeleteURLs(ctx context.Context, data []models.URLForDeleteMsg) error {
 	return nil
 }
 

@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -18,8 +20,9 @@ import (
 )
 
 type Service struct {
-	Config  config.Config
-	Storage storage.Storage
+	Config         config.Config
+	Storage        storage.Storage
+	URLsDeletionCh chan models.URLForDeleteMsg
 }
 
 func NewService(config config.Config, storage storage.Storage) *Service {
@@ -27,6 +30,9 @@ func NewService(config config.Config, storage storage.Storage) *Service {
 
 	srv.Config = config
 	srv.Storage = storage
+	srv.URLsDeletionCh = make(chan models.URLForDeleteMsg, 1024)
+
+	go srv.flushMessages()
 
 	return &srv
 }
@@ -54,9 +60,14 @@ func (srv *Service) DeleteUserURLs(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	go srv.Storage.DeleteURLs(req.Context(), userID, urls)
-
 	res.WriteHeader(http.StatusAccepted)
+
+	for _, url := range urls {
+		srv.URLsDeletionCh <- models.URLForDeleteMsg{
+			ShortURL: url,
+			UserID:   userID,
+		}
+	}
 }
 
 func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
@@ -344,5 +355,32 @@ func (srv *Service) PingDB(res http.ResponseWriter, req *http.Request) {
 		}
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
+	}
+}
+
+func (srv *Service) flushMessages() {
+	ticker := time.NewTicker(10 * time.Second)
+
+	var URLsForDelete []models.URLForDeleteMsg
+
+	for {
+		select {
+
+		case msg := <-srv.URLsDeletionCh:
+			URLsForDelete = append(URLsForDelete, msg)
+
+		case <-ticker.C:
+			if len(URLsForDelete) == 0 {
+				continue
+			}
+
+			err := srv.Storage.DeleteURLs(context.Background(), URLsForDelete)
+			if err != nil {
+				logger.Log.Info(err.Error())
+				continue
+			}
+
+			URLsForDelete = nil
+		}
 	}
 }
