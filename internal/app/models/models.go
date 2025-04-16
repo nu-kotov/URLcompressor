@@ -29,4 +29,10 @@ type URLsData struct {
 	ShortURL      string `json:"short_url"`
 	OriginalURL   string `json:"original_url"`
 	CorrelationID string `json:"correlation_id"`
+	DeletedFlag   bool   `json:"is_deleted"`
+}
+
+type URLForDeleteMsg struct {
+	UserID   string `json:"user_id"`
+	ShortURL string `json:"short_url"`
 }

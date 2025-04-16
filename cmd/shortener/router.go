@@ -20,7 +20,8 @@ func NewRouter(service handler.Service) *mux.Router {
 	router.HandleFunc(`/api/shorten`, middlewareStack(service.GetShortURL))
 	router.HandleFunc(`/{id:\w+}`, middlewareStack(service.RedirectByShortURLID))
 	router.HandleFunc(`/api/shorten/batch`, middlewareStack(service.GetShortURLsBatch))
-	router.HandleFunc(`/api/user/urls`, middlewareStack(service.GetUserURLs))
+	router.HandleFunc(`/api/user/urls`, middlewareStack(service.GetUserURLs)).Methods("GET")
+	router.HandleFunc(`/api/user/urls`, middlewareStack(service.DeleteUserURLs)).Methods("DELETE")
 
 	return router
 }

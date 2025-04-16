@@ -44,6 +44,10 @@ func (f *FileStorage) InsertURLsData(ctx context.Context, data *models.URLsData)
 	return f.dataProducer.WriteEvent(data)
 }
 
+func (f *FileStorage) DeleteURLs(ctx context.Context, data []models.URLForDeleteMsg) error {
+	return nil
+}
+
 func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
 	for _, d := range data {
 		if _, exist := f.mapCash[d.ShortURL]; !exist {
