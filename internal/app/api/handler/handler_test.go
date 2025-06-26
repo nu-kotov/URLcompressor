@@ -70,7 +70,9 @@ func TestCompressURLWithPGMock(t *testing.T) {
 }
 
 func TestCompressURL(t *testing.T) {
-	config := config.NewConfig()
+	var config config.Config
+	config.RunAddr = "localhost:8080"
+	config.BaseURL = "http://localhost:8080"
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
