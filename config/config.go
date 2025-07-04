@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// Config - структура конфигурации проекта.
 type Config struct {
 	RunAddr            string
 	BaseURL            string
@@ -12,6 +13,7 @@ type Config struct {
 	DatabaseConnection string
 }
 
+// NewConfig - конструктор конфигурации проекта.
 func NewConfig() Config {
 	var config Config
 

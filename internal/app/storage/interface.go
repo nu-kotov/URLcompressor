@@ -7,6 +7,7 @@ import (
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 )
 
+// Storage - интерфейс методов хранилища.
 type Storage interface {
 	InsertURLsData(ctx context.Context, data *models.URLsData) error
 	InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error
@@ -17,6 +18,7 @@ type Storage interface {
 	Close() error
 }
 
+// NewStorage - конструктор хранилища.
 func NewStorage(c config.Config) (Storage, error) {
 	if c.FileStoragePath != "" {
 		fileStorage, err := NewFileStorage(c.FileStoragePath, c.BaseURL)

@@ -6,6 +6,7 @@ import (
 
 var Log *zap.Logger = zap.NewNop()
 
+// NewLogger - конструктор логгера.
 func NewLogger(level string) error {
 
 	lvl, err := zap.ParseAtomicLevel(level)

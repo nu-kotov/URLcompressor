@@ -14,6 +14,7 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// DBStorage - структура PostgreSQL хранилища.
 type DBStorage struct {
 	db      *sql.DB
 	baseURL string
@@ -28,6 +29,7 @@ var (
 	embedMigrations embed.FS
 )
 
+// NewConnect - конструктор PostgreSQL хранилища.
 func NewConnect(connString string, baseURL string) (*DBStorage, error) {
 	db, err := sql.Open("pgx", connString)
 	if err != nil {
@@ -49,14 +51,17 @@ func NewConnect(connString string, baseURL string) (*DBStorage, error) {
 	return dbInstance, nil
 }
 
+// Ping - пингует соединение с дб.
 func (pg *DBStorage) Ping() error {
 	return pg.db.Ping()
 }
 
+// Close - закрывает соединение с дб.
 func (pg *DBStorage) Close() error {
 	return pg.db.Close()
 }
 
+// InsertURLsData - вставляет в бд информацию по урлу.
 func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
 
 	sql := `INSERT INTO urls (short_url, original_url, user_id) VALUES ($1, $2, $3);`
@@ -88,6 +93,7 @@ func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) 
 	return tx.Commit()
 }
 
+// InsertURLsDataBatch - вставляет в бд информацию батчу урлов.
 func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
 
 	sql := `INSERT INTO urls (short_url, original_url, correlation_id, user_id) VALUES ($1, $2, $3, $4);`
@@ -121,6 +127,7 @@ func (pg *DBStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLs
 	return tx.Commit()
 }
 
+// DeleteURLs - вставляет в бд информацию батчу урлов.
 func (pg *DBStorage) DeleteURLs(ctx context.Context, data []models.URLForDeleteMsg) error {
 	sql := `UPDATE urls SET is_deleted = TRUE WHERE short_url = $1 AND user_id = $2;`
 
@@ -145,6 +152,7 @@ func (pg *DBStorage) DeleteURLs(ctx context.Context, data []models.URLForDeleteM
 	return tx.Commit()
 }
 
+// SelectOriginalURLByShortURL - возвращает полный урл по сокращенному из бд.
 func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error) {
 	var originalURL string
 	var isDeleted bool
@@ -168,6 +176,7 @@ func (pg *DBStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL s
 	return originalURL, nil
 }
 
+// SelectURLs - возвращает информацию по урлам пользователя из бд.
 func (pg *DBStorage) SelectURLs(ctx context.Context, userID string) ([]models.GetUserURLsResponse, error) {
 	var data []models.GetUserURLsResponse
 

@@ -23,7 +23,7 @@ func main() {
 	}
 
 	service := handler.NewService(config, store)
-	router := NewRouter(*service)
+	router := handler.NewRouter(*service)
 
 	defer service.Storage.Close()
 	go func() {

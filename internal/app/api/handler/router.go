@@ -1,12 +1,12 @@
-package main
+package handler
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
 	"github.com/nu-kotov/URLcompressor/internal/app/middleware"
 )
 
-func NewRouter(service handler.Service) *mux.Router {
+// NewRouter - конструктор роутера.
+func NewRouter(service Service) *mux.Router {
 	router := mux.NewRouter()
 
 	middlewareStack := middleware.Chain(
