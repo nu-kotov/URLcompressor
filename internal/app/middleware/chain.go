@@ -4,6 +4,7 @@ import (
 	"net/http"
 )
 
+// Middleware экземпляр ф-ции middleware.
 type Middleware func(h http.HandlerFunc) http.HandlerFunc
 
 // Chain возвращает миддлвары по цепочке, для последовательного вызова.

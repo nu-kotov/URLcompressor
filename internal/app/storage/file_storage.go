@@ -101,7 +101,7 @@ func (f *FileStorage) Ping() error {
 	return nil
 }
 
-// Close - закрывает файл.
+// Close - вызывает методы закрытия файла консюмера и продюсера.
 func (f *FileStorage) Close() error {
 	err := f.dataConsumer.file.Close()
 	if err != nil {
@@ -115,6 +115,7 @@ func (f *FileStorage) Close() error {
 	return nil
 }
 
+// Producer - экземпляр продюсера для записи в файл.
 type Producer struct {
 	file   *os.File
 	writer *bufio.Writer
@@ -132,6 +133,7 @@ func newProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
+// WriteEvent - записывает данные в файл.
 func (p *Producer) WriteEvent(event *models.URLsData) error {
 	data, err := json.Marshal(&event)
 	if err != nil {
@@ -149,6 +151,7 @@ func (p *Producer) WriteEvent(event *models.URLsData) error {
 	return p.writer.Flush()
 }
 
+// Consumer - экземпляр консюмера для чтения из файла.
 type Consumer struct {
 	file    *os.File
 	scanner *bufio.Scanner
@@ -166,6 +169,7 @@ func newConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
+// ReadEvent - читает данные из файла.
 func (c *Consumer) ReadEvent() (*models.URLsData, error) {
 
 	if !c.scanner.Scan() {
@@ -200,6 +204,7 @@ func (c *Consumer) fillMapCash() (map[string]string, error) {
 	return mapCash, nil
 }
 
+// Close - закрывает файл.
 func (c *Consumer) Close() error {
 	return c.file.Close()
 }
