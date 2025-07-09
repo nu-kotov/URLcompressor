@@ -9,14 +9,19 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// Claims - структура - части JWT-токена.
 type Claims struct {
 	jwt.RegisteredClaims
 	UserID string
 }
 
+// TokenExp - время жизни токена.
 const TokenExp = time.Hour * 3
+
+// SecretKey - секретный ключ для подписи токена.
 const SecretKey = "supersecretkey"
 
+// BuildJWTString создает JWT токен.
 func BuildJWTString() (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -33,6 +38,7 @@ func BuildJWTString() (string, error) {
 	return tokenString, nil
 }
 
+// GetUserID получает ID пользователя из JWT токена.
 func GetUserID(tokenString string) (string, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
@@ -22,9 +23,12 @@ func main() {
 	}
 
 	service := handler.NewService(config, store)
-	router := NewRouter(*service)
+	router := handler.NewRouter(*service)
 
 	defer service.Storage.Close()
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	log.Fatal(http.ListenAndServe(config.RunAddr, router))
 }

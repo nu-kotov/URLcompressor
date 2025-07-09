@@ -19,12 +19,14 @@ import (
 	"github.com/sqids/sqids-go"
 )
 
+// Service - структура сервиса для сокращения ссылок.
 type Service struct {
 	Config         config.Config
 	Storage        storage.Storage
 	URLsDeletionCh chan models.URLForDeleteMsg
 }
 
+// NewService - конструктор сервиса для сокращения ссылок.
 func NewService(config config.Config, storage storage.Storage) *Service {
 	var srv Service
 
@@ -37,6 +39,7 @@ func NewService(config config.Config, storage storage.Storage) *Service {
 	return &srv
 }
 
+// DeleteUserURLs помещает список ID урлов ["IhqFu4fdBD9w", "50ZT5FOYE6y"] в канал для удаления.
 func (srv *Service) DeleteUserURLs(res http.ResponseWriter, req *http.Request) {
 	token, err := req.Cookie("token")
 
@@ -70,6 +73,7 @@ func (srv *Service) DeleteUserURLs(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// GetUserURLs возвращает список сокращенных и полных урлов пользователя.
 func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 
 	token, err := req.Cookie("token")
@@ -106,6 +110,7 @@ func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// GetShortURLsBatch сохраняет батч коротких урлов и возвращает его в качестве ответа.
 func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 
@@ -188,6 +193,7 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 	}
 }
 
+// GetShortURL сохраняет сокращенный URL и возвращает его в качестве ответа.
 func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
@@ -260,6 +266,7 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// CompressURL сохраняет сокращенный URL и возвращает его в качестве ответа.
 func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
@@ -319,6 +326,7 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// RedirectByShortURLID редиректит по ID короткого урла на страницу по оригинальному урлу.
 func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodGet {
@@ -345,6 +353,7 @@ func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Requ
 	}
 }
 
+// PingDB пингует бд.
 func (srv *Service) PingDB(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodGet {
 		err := srv.Storage.Ping()
@@ -358,6 +367,7 @@ func (srv *Service) PingDB(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// flushMessages слушает сообщения в канале URLsDeletionCh, помечает, что урлы из сообщений удалены.
 func (srv *Service) flushMessages() {
 	ticker := time.NewTicker(10 * time.Second)
 

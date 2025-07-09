@@ -4,8 +4,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// Log - глобальный экземпляр логгера.
 var Log *zap.Logger = zap.NewNop()
 
+// NewLogger - конструктор логгера.
 func NewLogger(level string) error {
 
 	lvl, err := zap.ParseAtomicLevel(level)

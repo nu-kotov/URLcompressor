@@ -11,22 +11,72 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/gorilla/mux"
 
+	"github.com/golang/mock/gomock"
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
 	"github.com/nu-kotov/URLcompressor/internal/app/middleware"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
+	"github.com/nu-kotov/URLcompressor/mocks"
 	"github.com/sqids/sqids-go"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCompressURL(t *testing.T) {
+func TestCompressURLWithPGMock(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	storage := mocks.NewMockStorage(ctrl)
 	config := config.NewConfig()
+
+	service := NewService(config, storage)
+
+	storage.EXPECT().InsertURLsData(gomock.Any(), gomock.Any()).Return(nil)
+
+	middlewareStack := middleware.Chain(
+		middleware.RequestCompressor,
+		middleware.RequestLogger,
+		middleware.RequestSession,
+	)
+
+	handler := http.HandlerFunc(middlewareStack(service.CompressURL))
+	server := httptest.NewServer(handler)
+
+	defer server.Close()
+
+	parsedURL, err := url.Parse(server.URL)
+	assert.NoError(t, err, "parsing server URL error")
+
+	config.RunAddr = parsedURL.Host
+	config.BaseURL = server.URL
+
+	testURL := "https://stackoverflow.com"
+	URLHash := utils.Hash([]byte(testURL))
+
+	sqids, err := sqids.New()
+	assert.NoError(t, err, "error making sqids variable")
+
+	shortID, err := sqids.Encode([]uint64{URLHash})
+	assert.NoError(t, err, "error making %v expected variable", shortID)
+
+	req := resty.New().R()
+	req.Method = http.MethodPost
+	req.URL = server.URL
+	req.Body = testURL
+
+	resp, err := req.Send()
+
+	assert.NoError(t, err, "error making HTTP request")
+	assert.Equal(t, 201, resp.StatusCode(), "Response statusCode didn't match expected")
+
+}
+
+func TestCompressURL(t *testing.T) {
+	var config config.Config
+	config.RunAddr = "localhost:8080"
+	config.BaseURL = "http://localhost:8080"
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
 	service := NewService(config, store)
-	assert.NoError(t, err, "Init service error")
 
 	middlewareStack := middleware.Chain(
 		middleware.RequestCompressor,

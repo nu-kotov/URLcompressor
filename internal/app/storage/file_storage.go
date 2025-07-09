@@ -10,12 +10,14 @@ import (
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 )
 
+// FileStorage - структура хранилища в файле.
 type FileStorage struct {
 	dataProducer *Producer
 	dataConsumer *Consumer
 	mapCash      map[string]string
 }
 
+// NewFileStorage - конструктор хранилища в файле.
 func NewFileStorage(filename string, baseURL string) (*FileStorage, error) {
 	producer, err := newProducer(filename)
 	if err != nil {
@@ -39,15 +41,18 @@ func NewFileStorage(filename string, baseURL string) (*FileStorage, error) {
 	}, nil
 }
 
+// InsertURLsData - вставляет в файл информацию по урлу.
 func (f *FileStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
 	f.mapCash[data.ShortURL] = data.OriginalURL
 	return f.dataProducer.WriteEvent(data)
 }
 
+// DeleteURLs - заглушка, для реализации общего интерфейса для всех видов хранилищ.
 func (f *FileStorage) DeleteURLs(ctx context.Context, data []models.URLForDeleteMsg) error {
 	return nil
 }
 
+// InsertURLsDataBatch - вставка батча урлов в файл.
 func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URLsData) error {
 	for _, d := range data {
 		if _, exist := f.mapCash[d.ShortURL]; !exist {
@@ -61,6 +66,7 @@ func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URL
 	return nil
 }
 
+// SelectURLs - возвращает информацию по урлам пользователя из файла.
 func (f *FileStorage) SelectURLs(ctx context.Context, userID string) ([]models.GetUserURLsResponse, error) {
 	var data []models.GetUserURLsResponse
 
@@ -82,6 +88,7 @@ func (f *FileStorage) SelectURLs(ctx context.Context, userID string) ([]models.G
 	return data, nil
 }
 
+// SelectOriginalURLByShortURL - возвращает полный урл по сокращенному из файла.
 func (f *FileStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error) {
 	if _, exist := f.mapCash[shortURL]; !exist {
 		return "", errors.New("SHORT URL NOT EXIST")
@@ -89,10 +96,12 @@ func (f *FileStorage) SelectOriginalURLByShortURL(ctx context.Context, shortURL 
 	return f.mapCash[shortURL], nil
 }
 
+// Ping - заглушка, для реализации общего интерфейса для всех видов хранилищ.
 func (f *FileStorage) Ping() error {
 	return nil
 }
 
+// Close - вызывает методы закрытия файла консюмера и продюсера.
 func (f *FileStorage) Close() error {
 	err := f.dataConsumer.file.Close()
 	if err != nil {
@@ -106,6 +115,7 @@ func (f *FileStorage) Close() error {
 	return nil
 }
 
+// Producer - экземпляр продюсера для записи в файл.
 type Producer struct {
 	file   *os.File
 	writer *bufio.Writer
@@ -123,6 +133,7 @@ func newProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
+// WriteEvent - записывает данные в файл.
 func (p *Producer) WriteEvent(event *models.URLsData) error {
 	data, err := json.Marshal(&event)
 	if err != nil {
@@ -140,6 +151,7 @@ func (p *Producer) WriteEvent(event *models.URLsData) error {
 	return p.writer.Flush()
 }
 
+// Consumer - экземпляр консюмера для чтения из файла.
 type Consumer struct {
 	file    *os.File
 	scanner *bufio.Scanner
@@ -157,6 +169,7 @@ func newConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
+// ReadEvent - читает данные из файла.
 func (c *Consumer) ReadEvent() (*models.URLsData, error) {
 
 	if !c.scanner.Scan() {
@@ -191,6 +204,7 @@ func (c *Consumer) fillMapCash() (map[string]string, error) {
 	return mapCash, nil
 }
 
+// Close - закрывает файл.
 func (c *Consumer) Close() error {
 	return c.file.Close()
 }

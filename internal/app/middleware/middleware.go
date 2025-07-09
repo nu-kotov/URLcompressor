@@ -24,17 +24,20 @@ type (
 	}
 )
 
+// Write записывает в ответ данные и размер ответа.
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size += size
 	return size, err
 }
 
+// WriteHeader записывает статус ответа.
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.responseData.status = statusCode
 }
 
+// RequestLogger - middleware для логирования HTTP-запросов и ответов.
 func RequestLogger(h http.HandlerFunc) http.HandlerFunc {
 	logFn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -63,6 +66,7 @@ func RequestLogger(h http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(logFn)
 }
 
+// RequestCompressor - middleware для сжатия HTTP-запросов и ответов.
 func RequestCompressor(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ow := w
@@ -93,6 +97,7 @@ func RequestCompressor(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// RequestSession - middleware для проверки/генерации JWT-токена.
 func RequestSession(h http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := r.Cookie("token")
