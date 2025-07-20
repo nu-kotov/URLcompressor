@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -11,7 +12,16 @@ import (
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
 )
 
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 func main() {
+
+	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
+
 	if err := logger.NewLogger("info"); err != nil {
 		log.Fatal("Error initialize zap logger: ", err)
 	}
