@@ -11,6 +11,7 @@ type Config struct {
 	BaseURL            string
 	FileStoragePath    string
 	DatabaseConnection string
+	EnableHTTPS        bool
 }
 
 // NewConfig - конструктор конфигурации проекта.
@@ -21,6 +22,7 @@ func NewConfig() Config {
 	flag.StringVar(&config.BaseURL, "b", "http://localhost:8080", "default schema, host and port in compressed URL")
 	flag.StringVar(&config.FileStoragePath, "f", "", "Path to file with saved URLs data")
 	flag.StringVar(&config.DatabaseConnection, "d", "", "Database connection string")
+	flag.BoolVar(&config.EnableHTTPS, "s", false, "Enable HTTPS connection")
 
 	if envRunAddr := os.Getenv("SERVER_ADDRESS"); envRunAddr != "" {
 		config.RunAddr = envRunAddr
@@ -33,6 +35,9 @@ func NewConfig() Config {
 	}
 	if envDatabaseConnection := os.Getenv("DATABASE_DSN"); envDatabaseConnection != "" {
 		config.DatabaseConnection = envDatabaseConnection
+	}
+	if envEnableHTTPS := os.Getenv("ENABLE_HTTPS"); envEnableHTTPS == "true" {
+		config.EnableHTTPS = true
 	}
 
 	flag.Parse()

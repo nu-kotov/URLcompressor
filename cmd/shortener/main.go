@@ -10,6 +10,7 @@ import (
 	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 var (
@@ -40,5 +41,19 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	log.Fatal(http.ListenAndServe(config.RunAddr, router))
+	if config.EnableHTTPS {
+		manager := &autocert.Manager{
+			Cache:      autocert.DirCache("cache-dir"),
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist("urlcompressor.ru"),
+		}
+		server := &http.Server{
+			Addr:      config.RunAddr,
+			Handler:   router,
+			TLSConfig: manager.TLSConfig(),
+		}
+		log.Fatal(server.ListenAndServeTLS("", ""))
+	} else {
+		log.Fatal(http.ListenAndServe(config.RunAddr, router))
+	}
 }
