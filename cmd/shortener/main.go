@@ -27,13 +27,16 @@ func main() {
 		log.Fatal("Error initialize zap logger: ", err)
 	}
 
-	config := config.NewConfig()
-	store, err := storage.NewStorage(config)
+	config, err := config.NewConfig()
+	if err != nil {
+		log.Fatal("Error initialize config: ", err)
+	}
+	store, err := storage.NewStorage(*config)
 	if err != nil {
 		log.Fatal("Error initialize storage: ", err)
 	}
 
-	service := handler.NewService(config, store)
+	service := handler.NewService(*config, store)
 	router := handler.NewRouter(*service)
 
 	defer service.Storage.Close()

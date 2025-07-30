@@ -25,9 +25,10 @@ import (
 func TestCompressURLWithPGMock(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storage := mocks.NewMockStorage(ctrl)
-	config := config.NewConfig()
+	config, err := config.NewConfig()
+	assert.NoError(t, err, "error config init")
 
-	service := NewService(config, storage)
+	service := NewService(*config, storage)
 
 	storage.EXPECT().InsertURLsData(gomock.Any(), gomock.Any()).Return(nil)
 
