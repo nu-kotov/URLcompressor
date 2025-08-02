@@ -29,6 +29,7 @@ func main() {
 
 	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
+	idleConnsClosed := make(chan struct{})
 	sigForShutdown := make(chan os.Signal, 1)
 	signal.Notify(sigForShutdown, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
@@ -58,6 +59,27 @@ func main() {
 		Handler: router,
 	}
 
+	go func() {
+		<-sigForShutdown
+
+		logger.Log.Info("shutdown signal received...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+		defer cancel()
+
+		if err := service.Storage.Close(); err != nil {
+			logger.Log.Error("Error closing store", zap.Error(err))
+		}
+
+		if err := server.Shutdown(ctx); err != nil {
+			logger.Log.Error("Server forced to shutdown", zap.Error(err))
+		} else {
+			logger.Log.Info("Server shutdown gracefully")
+		}
+		close(idleConnsClosed)
+	}()
+
 	if config.EnableHTTPS {
 		manager := &autocert.Manager{
 			Cache:      autocert.DirCache("cache-dir"),
@@ -68,23 +90,5 @@ func main() {
 		log.Fatal(server.ListenAndServeTLS("", ""))
 	} else {
 		log.Fatal(server.ListenAndServe())
-	}
-
-	<-sigForShutdown
-
-	logger.Log.Info("shutdown signal received...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-	defer cancel()
-
-	if err := service.Storage.Close(); err != nil {
-		logger.Log.Error("Error closing store", zap.Error(err))
-	}
-
-	if err := server.Shutdown(ctx); err != nil {
-		logger.Log.Error("Server forced to shutdown", zap.Error(err))
-	} else {
-		logger.Log.Info("Server shutdown gracefully")
 	}
 }
