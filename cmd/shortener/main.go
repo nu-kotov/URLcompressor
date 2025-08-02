@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
@@ -49,7 +48,6 @@ func main() {
 	service := handler.NewService(*config, store)
 	router := handler.NewRouter(*service)
 
-	defer service.Storage.Close()
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
@@ -60,35 +58,37 @@ func main() {
 	}
 
 	go func() {
-		<-sigForShutdown
-
-		logger.Log.Info("shutdown signal received...")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-		defer cancel()
-
-		if err := service.Storage.Close(); err != nil {
-			logger.Log.Error("Error closing store", zap.Error(err))
-		}
-
-		if err := server.Shutdown(ctx); err != nil {
-			logger.Log.Error("Server forced to shutdown", zap.Error(err))
+		if config.EnableHTTPS {
+			manager := &autocert.Manager{
+				Cache:      autocert.DirCache("cache-dir"),
+				Prompt:     autocert.AcceptTOS,
+				HostPolicy: autocert.HostWhitelist("urlcompressor.ru"),
+			}
+			server.TLSConfig = manager.TLSConfig()
+			err = server.ListenAndServeTLS("", "")
+			if err != nil {
+				logger.Log.Error("Error ListenAndServeTLS", zap.Error(err))
+			}
 		} else {
-			logger.Log.Info("Server shutdown gracefully")
+			err = server.ListenAndServe()
+			if err != nil {
+				logger.Log.Error("Error ListenAndServe", zap.Error(err))
+			}
 		}
-		close(idleConnsClosed)
 	}()
 
-	if config.EnableHTTPS {
-		manager := &autocert.Manager{
-			Cache:      autocert.DirCache("cache-dir"),
-			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist("urlcompressor.ru"),
-		}
-		server.TLSConfig = manager.TLSConfig()
-		log.Fatal(server.ListenAndServeTLS("", ""))
-	} else {
-		log.Fatal(server.ListenAndServe())
+	<-sigForShutdown
+
+	logger.Log.Info("shutdown signal received...")
+
+	if err := service.Storage.Close(); err != nil {
+		logger.Log.Error("Error closing store", zap.Error(err))
 	}
+
+	if err := server.Shutdown(context.Background()); err != nil {
+		logger.Log.Error("Server forced to shutdown", zap.Error(err))
+	} else {
+		logger.Log.Info("Server shutdown gracefully")
+	}
+	close(idleConnsClosed)
 }
