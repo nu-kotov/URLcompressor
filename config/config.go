@@ -68,7 +68,14 @@ func NewConfig() (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("openning config json file error: %w", err)
 		}
-		defer confJSONFile.Close()
+		defer func() {
+			if errClosingFile := confJSONFile.Close(); errClosingFile != nil {
+				err = errClosingFile
+			}
+		}()
+		if err != nil {
+			return nil, fmt.Errorf("closing config json file error: %w", err)
+		}
 
 		bytes, _ := io.ReadAll(confJSONFile)
 		json.Unmarshal(bytes, &jsonConfig)

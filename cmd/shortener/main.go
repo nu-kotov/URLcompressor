@@ -9,12 +9,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
-	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 )
 
@@ -25,6 +25,13 @@ var (
 )
 
 func main() {
+	err := run()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 
 	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
@@ -33,16 +40,16 @@ func main() {
 	signal.Notify(sigForShutdown, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	if err := logger.NewLogger("info"); err != nil {
-		log.Fatal("Error initialize zap logger: ", err)
+		return fmt.Errorf("error initialize zap logger: %w", err)
 	}
 
 	config, err := config.NewConfig()
 	if err != nil {
-		log.Fatal("Error initialize config: ", err)
+		return fmt.Errorf("error initialize config: %w", err)
 	}
 	store, err := storage.NewStorage(*config)
 	if err != nil {
-		log.Fatal("Error initialize storage: ", err)
+		return fmt.Errorf("error initialize storage: %w", err)
 	}
 
 	service := handler.NewService(*config, store)
@@ -57,7 +64,7 @@ func main() {
 		Handler: router,
 	}
 
-	go func() {
+	go func() error {
 		if config.EnableHTTPS {
 			manager := &autocert.Manager{
 				Cache:      autocert.DirCache("cache-dir"),
@@ -66,15 +73,16 @@ func main() {
 			}
 			server.TLSConfig = manager.TLSConfig()
 			err = server.ListenAndServeTLS("", "")
-			if err != nil {
-				logger.Log.Error("Error ListenAndServeTLS", zap.Error(err))
+			if err != nil && err != http.ErrServerClosed {
+				return fmt.Errorf("error ListenAndServeTLS: %w", err)
 			}
 		} else {
 			err = server.ListenAndServe()
-			if err != nil {
-				logger.Log.Error("Error ListenAndServe", zap.Error(err))
+			if err != nil && err != http.ErrServerClosed {
+				return fmt.Errorf("error ListenAndServe: %w", err)
 			}
 		}
+		return nil
 	}()
 
 	<-sigForShutdown
@@ -82,13 +90,18 @@ func main() {
 	logger.Log.Info("shutdown signal received...")
 
 	if err := service.Storage.Close(); err != nil {
-		logger.Log.Error("Error closing store", zap.Error(err))
+		return fmt.Errorf("error closing store: %w", err)
 	}
 
-	if err := server.Shutdown(context.Background()); err != nil {
-		logger.Log.Error("Server forced to shutdown", zap.Error(err))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("server forced to shutdown: %w", err)
 	} else {
 		logger.Log.Info("Server shutdown gracefully")
 	}
 	close(idleConnsClosed)
+
+	return nil
 }
