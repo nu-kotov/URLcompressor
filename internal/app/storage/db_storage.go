@@ -64,6 +64,46 @@ func (pg *DBStorage) Close() error {
 	return pg.db.Close()
 }
 
+// SelectURLsCount - получает количество урлов в сервисе.
+func (pg *DBStorage) SelectURLsCount(ctx context.Context) (int, error) {
+	var URLsCount int
+
+	sql := `SELECT COUNT(*) FROM urls WHERE is_deleted = FALSE`
+
+	row := pg.db.QueryRowContext(
+		ctx,
+		sql,
+	)
+
+	err := row.Scan(&URLsCount)
+
+	if err != nil {
+		return -1, err
+	}
+
+	return URLsCount, nil
+}
+
+// SelectURLsCount - получает количество пользователей в сервисе.
+func (pg *DBStorage) SelectUsersCount(ctx context.Context) (int, error) {
+	var usersCount int
+
+	sql := `SELECT DISTINCT COUNT(user_id) FROM urls WHERE is_deleted = FALSE`
+
+	row := pg.db.QueryRowContext(
+		ctx,
+		sql,
+	)
+
+	err := row.Scan(&usersCount)
+
+	if err != nil {
+		return -1, err
+	}
+
+	return usersCount, nil
+}
+
 // InsertURLsData - вставляет в бд информацию по урлу.
 func (pg *DBStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
 

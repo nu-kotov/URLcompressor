@@ -43,3 +43,9 @@ type URLForDeleteMsg struct {
 	UserID   string `json:"user_id"`
 	ShortURL string `json:"short_url"`
 }
+
+// GetStats - структура ответа с данными о кол-ве урлов и пользователей сервиса.
+type GetStatsResponse struct {
+	URLs  int `json:"urls"`
+	Users int `json:"users"`
+}

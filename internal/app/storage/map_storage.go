@@ -19,6 +19,16 @@ func NewMapStorage() (*MapStorage, error) {
 	}, nil
 }
 
+// SelectURLsCount - получает количество урлов в сервисе.
+func (ms *MapStorage) SelectURLsCount(ctx context.Context) (int, error) {
+	return len(ms.mapStorage), nil
+}
+
+// SelectURLsCount - заглушка метода получения количество пользователей в сервисе.
+func (ms *MapStorage) SelectUsersCount(ctx context.Context) (int, error) {
+	return -2, nil
+}
+
 // InsertURLsData - вставляет в мапу информацию по урлу.
 func (ms *MapStorage) InsertURLsData(ctx context.Context, data *models.URLsData) error {
 	if _, exist := ms.mapStorage[data.ShortURL]; !exist {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -47,12 +48,20 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("error initialize config: %w", err)
 	}
+	var trustedSubnet *net.IPNet
+	if config.TrustedSubnet != "" {
+		_, subnet, err := net.ParseCIDR(config.TrustedSubnet)
+		if err != nil {
+			return fmt.Errorf("invalid trusted subnet: %w", err)
+		}
+		trustedSubnet = subnet
+	}
 	store, err := storage.NewStorage(*config)
 	if err != nil {
 		return fmt.Errorf("error initialize storage: %w", err)
 	}
 
-	service := handler.NewService(*config, store)
+	service := handler.NewService(*config, store, trustedSubnet)
 	router := handler.NewRouter(*service)
 
 	go func() {

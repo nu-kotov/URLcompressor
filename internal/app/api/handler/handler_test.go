@@ -28,7 +28,7 @@ func TestCompressURLWithPGMock(t *testing.T) {
 	config, err := config.NewConfig()
 	assert.NoError(t, err, "error config init")
 
-	service := NewService(*config, storage)
+	service := NewService(*config, storage, nil)
 
 	storage.EXPECT().InsertURLsData(gomock.Any(), gomock.Any()).Return(nil)
 
@@ -77,7 +77,7 @@ func TestCompressURL(t *testing.T) {
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 
 	middlewareStack := middleware.Chain(
 		middleware.RequestCompressor,
@@ -194,7 +194,7 @@ func TestGetShortURL(t *testing.T) {
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 
 	middlewareStack := middleware.Chain(
 		middleware.RequestCompressor,
@@ -317,7 +317,7 @@ func TestRedirectByShortURLID(t *testing.T) {
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 
 	router := mux.NewRouter()
 

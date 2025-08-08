@@ -17,7 +17,7 @@ import (
 func ExampleService_CompressURL() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 	router := NewRouter(*service)
 
 	reqBody := []byte("https://stackoverflow.com")
@@ -35,7 +35,7 @@ func ExampleService_CompressURL() {
 func ExampleService_GetShortURL() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 	router := NewRouter(*service)
 
 	reqBody, _ := json.Marshal(models.ShortenURLRequest{URL: "https://stackoverflow.com"})
@@ -53,7 +53,7 @@ func ExampleService_GetShortURL() {
 func ExampleService_RedirectByShortURLID() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 	router := NewRouter(*service)
 
 	reqBody := []byte("https://stackoverflow.com")
@@ -78,7 +78,7 @@ func ExampleService_RedirectByShortURLID() {
 func ExampleService_GetUserURLs() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 	router := NewRouter(*service)
 
 	reqBody := []byte("https://stackoverflow.com")
@@ -112,7 +112,7 @@ func ExampleService_GetUserURLs() {
 func ExampleService_DeleteUserURLs() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 	router := NewRouter(*service)
 
 	reqBody := []byte("https://stackoverflow.com")
@@ -150,7 +150,7 @@ func ExampleService_DeleteUserURLs() {
 func ExampleService_GetShortURLsBatch() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store)
+	service := NewService(config, store, nil)
 	router := NewRouter(*service)
 
 	reqBody, _ := json.Marshal([]models.GetShortURLsBatchRequest{
