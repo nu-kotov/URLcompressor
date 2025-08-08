@@ -16,16 +16,18 @@ type Config struct {
 	DatabaseConnection string
 	EnableHTTPS        bool
 	ConfigFileName     string
+	TrustedSubnet      string
 }
 
 // FileConfig - структура конфигурации проекта из файла json.
 type JSONFileConfig struct {
-	RunAddr            string
-	BaseURL            string
-	FileStoragePath    string
-	DatabaseConnection string
-	EnableHTTPS        bool
-	ConfigFileName     string
+	RunAddr            string `json:"server_address"`
+	BaseURL            string `json:"base_url"`
+	FileStoragePath    string `json:"file_storage_path"`
+	DatabaseConnection string `json:"database_dsn"`
+	EnableHTTPS        bool   `json:"enable_https"`
+	ConfigFileName     string `json:"config_file_name"`
+	TrustedSubnet      string `json:"trusted_subnet"`
 }
 
 // NewConfig - конструктор конфигурации проекта.
@@ -39,6 +41,7 @@ func NewConfig() (*Config, error) {
 	flag.StringVar(&config.DatabaseConnection, "d", "", "Database connection string")
 	flag.StringVar(&config.ConfigFileName, "c", "", "JSON config file name")
 	flag.BoolVar(&config.EnableHTTPS, "s", false, "Enable HTTPS connection")
+	flag.StringVar(&config.TrustedSubnet, "t", "", "Trusted subnet in CIDR format")
 
 	if envConfigFileName := os.Getenv("CONFIG"); envConfigFileName != "" {
 		config.ConfigFileName = envConfigFileName
@@ -58,6 +61,9 @@ func NewConfig() (*Config, error) {
 	}
 	if envEnableHTTPS := os.Getenv("ENABLE_HTTPS"); envEnableHTTPS == "true" {
 		config.EnableHTTPS = true
+	}
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		config.TrustedSubnet = envTrustedSubnet
 	}
 
 	flag.Parse()
@@ -91,6 +97,9 @@ func NewConfig() (*Config, error) {
 		}
 		if config.DatabaseConnection == "" {
 			config.DatabaseConnection = jsonConfig.DatabaseConnection
+		}
+		if config.TrustedSubnet == "" {
+			config.TrustedSubnet = jsonConfig.TrustedSubnet
 		}
 		config.EnableHTTPS = jsonConfig.EnableHTTPS
 	}

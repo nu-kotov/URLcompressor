@@ -22,6 +22,7 @@ func NewRouter(service Service) *mux.Router {
 	router.HandleFunc(`/api/shorten/batch`, middlewareStack(service.GetShortURLsBatch))
 	router.HandleFunc(`/api/user/urls`, middlewareStack(service.GetUserURLs)).Methods("GET")
 	router.HandleFunc(`/api/user/urls`, middlewareStack(service.DeleteUserURLs)).Methods("DELETE")
+	router.HandleFunc(`/api/internal/stats`, middlewareStack(service.DeleteUserURLs)).Methods("GET")
 
 	return router
 }

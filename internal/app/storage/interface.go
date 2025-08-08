@@ -14,6 +14,8 @@ type Storage interface {
 	SelectOriginalURLByShortURL(ctx context.Context, shortURL string) (string, error)
 	SelectURLs(ctx context.Context, userID string) ([]models.GetUserURLsResponse, error)
 	DeleteURLs(ctx context.Context, data []models.URLForDeleteMsg) error
+	SelectURLsCount(ctx context.Context) (int, error)
+	SelectUsersCount(ctx context.Context) (int, error)
 	Ping() error
 	Close() error
 }

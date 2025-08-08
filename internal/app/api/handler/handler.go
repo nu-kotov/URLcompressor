@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
 	"github.com/sqids/sqids-go"
+	"go.uber.org/zap"
 )
 
 // Service - структура сервиса для сокращения ссылок.
@@ -24,19 +26,71 @@ type Service struct {
 	Config         config.Config
 	Storage        storage.Storage
 	URLsDeletionCh chan models.URLForDeleteMsg
+	trustedSubnet  *net.IPNet
 }
 
 // NewService - конструктор сервиса для сокращения ссылок.
-func NewService(config config.Config, storage storage.Storage) *Service {
+func NewService(config config.Config, storage storage.Storage, trustedSubnet *net.IPNet) *Service {
 	var srv Service
 
 	srv.Config = config
 	srv.Storage = storage
+	srv.trustedSubnet = trustedSubnet
 	srv.URLsDeletionCh = make(chan models.URLForDeleteMsg, 1024)
 
 	go srv.flushMessages()
 
 	return &srv
+}
+
+// GetStats возвращает количество пользователей и урлов в сервисе.
+func (srv *Service) GetStats(res http.ResponseWriter, req *http.Request) {
+	if srv.trustedSubnet == nil {
+		http.Error(res, "trustedSubnet is nil", http.StatusForbidden)
+		return
+	}
+
+	headerIPStr := req.Header.Get("X-Real-IP")
+	if headerIPStr == "" {
+		res.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	ip := net.ParseIP(headerIPStr)
+	if ip == nil || !srv.trustedSubnet.Contains(ip) {
+		http.Error(res, "Not trusted IP", http.StatusForbidden)
+		return
+	}
+
+	URLsCount, err := srv.Storage.SelectURLsCount(req.Context())
+	if err != nil {
+		logger.Log.Info("Failed to get URLs count", zap.Error(err))
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	usersCount, err := srv.Storage.SelectUsersCount(req.Context())
+	if err != nil {
+		logger.Log.Info("Failed to get users count", zap.Error(err))
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
+
+	resp := models.GetStatsResponse{URLs: URLsCount, Users: usersCount}
+	JSONResp, err := json.Marshal(resp)
+	if err != nil {
+		logger.Log.Info("Failed to marshal response", zap.Error(err))
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	_, err = res.Write(JSONResp)
+
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // DeleteUserURLs помещает список ID урлов ["IhqFu4fdBD9w", "50ZT5FOYE6y"] в канал для удаления.
