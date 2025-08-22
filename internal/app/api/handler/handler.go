@@ -1,51 +1,45 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"net/http"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/nu-kotov/URLcompressor/config"
-	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
+	"github.com/nu-kotov/URLcompressor/internal/app/api/service"
 	"github.com/nu-kotov/URLcompressor/internal/app/auth"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
-	"github.com/sqids/sqids-go"
 	"go.uber.org/zap"
 )
 
-// Service - структура сервиса для сокращения ссылок.
-type Service struct {
-	Config         config.Config
-	Storage        storage.Storage
-	URLsDeletionCh chan models.URLForDeleteMsg
-	trustedSubnet  *net.IPNet
+// Handler - структура http хендлера для сокращения ссылок.
+type Handler struct {
+	Config        config.Config
+	Storage       storage.Storage
+	trustedSubnet *net.IPNet
+	service       service.Service
 }
 
-// NewService - конструктор сервиса для сокращения ссылок.
-func NewService(config config.Config, storage storage.Storage, trustedSubnet *net.IPNet) *Service {
-	var srv Service
+// NewHandler - конструктор хендлера http сервиса для сокращения ссылок.
+func NewHandler(config config.Config, service service.Service, storage storage.Storage, trustedSubnet *net.IPNet) *Handler {
+	var hnd Handler
 
-	srv.Config = config
-	srv.Storage = storage
-	srv.trustedSubnet = trustedSubnet
-	srv.URLsDeletionCh = make(chan models.URLForDeleteMsg, 1024)
+	hnd.Config = config
+	hnd.Storage = storage
+	hnd.trustedSubnet = trustedSubnet
+	hnd.service = service
 
-	go srv.flushMessages()
-
-	return &srv
+	return &hnd
 }
 
 // GetStats возвращает количество пользователей и урлов в сервисе.
-func (srv *Service) GetStats(res http.ResponseWriter, req *http.Request) {
-	if srv.trustedSubnet == nil {
+func (hnd *Handler) GetStats(res http.ResponseWriter, req *http.Request) {
+	if hnd.trustedSubnet == nil {
 		http.Error(res, "trustedSubnet is nil", http.StatusForbidden)
 		return
 	}
@@ -57,18 +51,18 @@ func (srv *Service) GetStats(res http.ResponseWriter, req *http.Request) {
 	}
 
 	ip := net.ParseIP(headerIPStr)
-	if ip == nil || !srv.trustedSubnet.Contains(ip) {
+	if ip == nil || !hnd.trustedSubnet.Contains(ip) {
 		http.Error(res, "Not trusted IP", http.StatusForbidden)
 		return
 	}
 
-	URLsCount, err := srv.Storage.SelectURLsCount(req.Context())
+	URLsCount, err := hnd.Storage.SelectURLsCount(req.Context())
 	if err != nil {
 		logger.Log.Info("Failed to get URLs count", zap.Error(err))
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	usersCount, err := srv.Storage.SelectUsersCount(req.Context())
+	usersCount, err := hnd.Storage.SelectUsersCount(req.Context())
 	if err != nil {
 		logger.Log.Info("Failed to get users count", zap.Error(err))
 		res.WriteHeader(http.StatusInternalServerError)
@@ -94,7 +88,7 @@ func (srv *Service) GetStats(res http.ResponseWriter, req *http.Request) {
 }
 
 // DeleteUserURLs помещает список ID урлов ["IhqFu4fdBD9w", "50ZT5FOYE6y"] в канал для удаления.
-func (srv *Service) DeleteUserURLs(res http.ResponseWriter, req *http.Request) {
+func (hnd *Handler) DeleteUserURLs(res http.ResponseWriter, req *http.Request) {
 	token, err := req.Cookie("token")
 
 	if err != nil {
@@ -119,16 +113,11 @@ func (srv *Service) DeleteUserURLs(res http.ResponseWriter, req *http.Request) {
 
 	res.WriteHeader(http.StatusAccepted)
 
-	for _, url := range urls {
-		srv.URLsDeletionCh <- models.URLForDeleteMsg{
-			ShortURL: url,
-			UserID:   userID,
-		}
-	}
+	go hnd.service.SendURLsToDeletion(urls, userID)
 }
 
 // GetUserURLs возвращает список сокращенных и полных урлов пользователя.
-func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
+func (hnd *Handler) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 
 	token, err := req.Cookie("token")
 
@@ -142,7 +131,7 @@ func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	if data, err := srv.Storage.SelectURLs(req.Context(), userID); data != nil {
+	if data, err := hnd.service.GetUserURLs(req.Context(), userID); data != nil {
 
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
@@ -154,7 +143,6 @@ func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 		}
 
 		_, err = res.Write(resp)
-
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 		}
@@ -165,7 +153,7 @@ func (srv *Service) GetUserURLs(res http.ResponseWriter, req *http.Request) {
 }
 
 // GetShortURLsBatch сохраняет батч коротких урлов и возвращает его в качестве ответа.
-func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request) {
+func (hnd *Handler) GetShortURLsBatch(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 
 		token, err := req.Cookie("token")
@@ -191,52 +179,16 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 			return
 		}
 
-		var resp []models.GetShortURLsBatchResponse
-		var rowsBatch []models.URLsData
-		for _, row := range jsonBody {
-
-			sqids, err := sqids.New()
-			if err != nil {
-				http.Error(res, "Sqids lib error", http.StatusInternalServerError)
-				return
-			}
-
-			bodyHash := utils.Hash([]byte(row.OriginalURL))
-			shortID, err := sqids.Encode([]uint64{bodyHash})
-			if err != nil {
-				http.Error(res, "Short ID creating error", http.StatusInternalServerError)
-				return
-			}
-
-			resp = append(
-				resp,
-				models.GetShortURLsBatchResponse{
-					CorrelationID: row.CorrelationID,
-					ShortURL:      srv.Config.BaseURL + "/" + shortID,
-				},
-			)
-
-			strBody := string(row.OriginalURL)
-
-			event := models.URLsData{
-				UUID:          uuid.New().String(),
-				ShortURL:      shortID,
-				OriginalURL:   strBody,
-				CorrelationID: row.CorrelationID,
-				UserID:        userID,
-			}
-			rowsBatch = append(rowsBatch, event)
-		}
-		respJSON, err := json.Marshal(resp)
-		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
-		}
-
-		err = srv.Storage.InsertURLsDataBatch(req.Context(), rowsBatch)
+		response, err := hnd.service.GetShortURLsBatch(req.Context(), jsonBody, userID)
 		if err != nil {
 			logger.Log.Info(err.Error())
-			http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+			http.Error(res, "Get short urls batch error", http.StatusInternalServerError)
 			return
+		}
+
+		respJSON, err := json.Marshal(response)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
 		}
 
 		res.Header().Set("Content-Type", "application/json")
@@ -248,7 +200,7 @@ func (srv *Service) GetShortURLsBatch(res http.ResponseWriter, req *http.Request
 }
 
 // GetShortURL сохраняет сокращенный URL и возвращает его в качестве ответа.
-func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
+func (hnd *Handler) GetShortURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
 
@@ -263,44 +215,23 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 		}
 
-		var jsonBody models.ShortenURLRequest
-
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			http.Error(res, "Invalid body", http.StatusBadRequest)
 			return
 		}
-		if err = json.Unmarshal(body, &jsonBody); err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
-			return
-		}
 
-		sqids, err := sqids.New()
-		if err != nil {
-			http.Error(res, "Sqids lib error", http.StatusInternalServerError)
-			return
-		}
-
-		bodyHash := utils.Hash([]byte(jsonBody.URL))
-		shortID, err := sqids.Encode([]uint64{bodyHash})
-		if err != nil {
-			http.Error(res, "Short ID creating error", http.StatusInternalServerError)
-			return
-		}
-
-		resp := models.ShortenURLResponse{Result: srv.Config.BaseURL + "/" + shortID}
-		respJSON, err := json.Marshal(resp)
-		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
-		}
-
-		strBody := string(jsonBody.URL)
-		event := models.URLsData{UserID: userID, UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody}
-
-		err = srv.Storage.InsertURLsData(req.Context(), &event)
+		resp, err := hnd.service.GetShortURLSrv(req.Context(), body, userID)
 
 		if err != nil {
 			if errors.Is(err, storage.ErrConflict) {
+
+				respJSON, err := json.Marshal(resp)
+				if err != nil {
+					http.Error(res, err.Error(), http.StatusBadRequest)
+					return
+				}
+
 				res.Header().Set("Content-Type", "application/json")
 				res.WriteHeader(http.StatusConflict)
 				res.Write(respJSON)
@@ -308,6 +239,12 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 			}
 			logger.Log.Info(err.Error())
 			http.Error(res, "Inserting to db error", http.StatusInternalServerError)
+			return
+		}
+
+		respJSON, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -321,7 +258,7 @@ func (srv *Service) GetShortURL(res http.ResponseWriter, req *http.Request) {
 }
 
 // CompressURL сохраняет сокращенный URL и возвращает его в качестве ответа.
-func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
+func (hnd *Handler) CompressURL(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPost {
 
@@ -342,28 +279,12 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		sqids, err := sqids.New()
-		if err != nil {
-			http.Error(res, "Sqids lib error", http.StatusInternalServerError)
-			return
-		}
-
-		bodyHash := utils.Hash(body)
-		shortID, err := sqids.Encode([]uint64{bodyHash})
-		if err != nil {
-			http.Error(res, "Short ID creating error", http.StatusInternalServerError)
-			return
-		}
-
-		strBody := string(body)
-		event := models.URLsData{UUID: uuid.New().String(), ShortURL: shortID, OriginalURL: strBody, UserID: userID}
-
-		err = srv.Storage.InsertURLsData(req.Context(), &event)
+		shortID, err := hnd.service.CompressURL(req.Context(), body, userID)
 		if err != nil {
 			if errors.Is(err, storage.ErrConflict) {
 				res.Header().Set("Content-Type", "text/plain")
 				res.WriteHeader(http.StatusConflict)
-				io.WriteString(res, string(srv.Config.BaseURL+"/"+shortID))
+				io.WriteString(res, string(hnd.Config.BaseURL+"/"+shortID))
 				return
 			}
 			logger.Log.Info(err.Error())
@@ -373,7 +294,7 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 
 		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusCreated)
-		io.WriteString(res, string(srv.Config.BaseURL+"/"+shortID))
+		io.WriteString(res, string(hnd.Config.BaseURL+"/"+shortID))
 
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
@@ -381,14 +302,14 @@ func (srv *Service) CompressURL(res http.ResponseWriter, req *http.Request) {
 }
 
 // RedirectByShortURLID редиректит по ID короткого урла на страницу по оригинальному урлу.
-func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Request) {
+func (hnd *Handler) RedirectByShortURLID(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodGet {
 
 		params := mux.Vars(req)
 		shortURLID := params["id"]
 
-		originalURL, err := srv.Storage.SelectOriginalURLByShortURL(req.Context(), shortURLID)
+		originalURL, err := hnd.service.SelectOriginalURLByShortURL(req.Context(), shortURLID)
 		if err != nil {
 			logger.Log.Info(err.Error())
 			http.Error(res, "URLs select error", http.StatusInternalServerError)
@@ -408,9 +329,9 @@ func (srv *Service) RedirectByShortURLID(res http.ResponseWriter, req *http.Requ
 }
 
 // PingDB пингует бд.
-func (srv *Service) PingDB(res http.ResponseWriter, req *http.Request) {
+func (hnd *Handler) PingDB(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodGet {
-		err := srv.Storage.Ping()
+		err := hnd.service.PingDB()
 		if err != nil {
 			res.WriteHeader(http.StatusInternalServerError)
 		} else {
@@ -418,33 +339,5 @@ func (srv *Service) PingDB(res http.ResponseWriter, req *http.Request) {
 		}
 	} else {
 		res.WriteHeader(http.StatusBadRequest)
-	}
-}
-
-// flushMessages слушает сообщения в канале URLsDeletionCh, помечает, что урлы из сообщений удалены.
-func (srv *Service) flushMessages() {
-	ticker := time.NewTicker(10 * time.Second)
-
-	var URLsForDelete []models.URLForDeleteMsg
-
-	for {
-		select {
-
-		case msg := <-srv.URLsDeletionCh:
-			URLsForDelete = append(URLsForDelete, msg)
-
-		case <-ticker.C:
-			if len(URLsForDelete) == 0 {
-				continue
-			}
-
-			err := srv.Storage.DeleteURLs(context.Background(), URLsForDelete)
-			if err != nil {
-				logger.Log.Info(err.Error())
-				continue
-			}
-
-			URLsForDelete = nil
-		}
 	}
 }

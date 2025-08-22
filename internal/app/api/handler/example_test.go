@@ -9,16 +9,18 @@ import (
 	"strings"
 
 	"github.com/nu-kotov/URLcompressor/config"
+	"github.com/nu-kotov/URLcompressor/internal/app/api/service"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
 )
 
-// ExampleService_CompressURL демонстрирует создание короткого URL.
-func ExampleService_CompressURL() {
+// ExampleHandler_CompressURL демонстрирует создание короткого URL.
+func ExampleHandler_CompressURL() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store, nil)
-	router := NewRouter(*service)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
+	router := NewRouter(*HTTPHandler)
 
 	reqBody := []byte("https://stackoverflow.com")
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(reqBody))
@@ -32,11 +34,12 @@ func ExampleService_CompressURL() {
 }
 
 // ExampleService_GetShortURL демонстрирует получение короткого урла в качестве ответа.
-func ExampleService_GetShortURL() {
+func ExampleHandler_GetShortURL() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store, nil)
-	router := NewRouter(*service)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
+	router := NewRouter(*HTTPHandler)
 
 	reqBody, _ := json.Marshal(models.ShortenURLRequest{URL: "https://stackoverflow.com"})
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewReader(reqBody))
@@ -50,11 +53,12 @@ func ExampleService_GetShortURL() {
 }
 
 // ExampleService_RedirectByShortURLID демонстрирует редирект на полный урл, по id короткого урла.
-func ExampleService_RedirectByShortURLID() {
+func ExampleHandler_RedirectByShortURLID() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store, nil)
-	router := NewRouter(*service)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
+	router := NewRouter(*HTTPHandler)
 
 	reqBody := []byte("https://stackoverflow.com")
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(reqBody))
@@ -75,11 +79,12 @@ func ExampleService_RedirectByShortURLID() {
 }
 
 // ExampleService_GetUserURLs демонстрирует получение всех урлов пользователя.
-func ExampleService_GetUserURLs() {
+func ExampleHandler_GetUserURLs() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store, nil)
-	router := NewRouter(*service)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
+	router := NewRouter(*HTTPHandler)
 
 	reqBody := []byte("https://stackoverflow.com")
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(reqBody))
@@ -109,11 +114,12 @@ func ExampleService_GetUserURLs() {
 }
 
 // ExampleService_DeleteUserURLs демонстрирует удаления урла пользователя.
-func ExampleService_DeleteUserURLs() {
+func ExampleHandler_DeleteUserURLs() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store, nil)
-	router := NewRouter(*service)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
+	router := NewRouter(*HTTPHandler)
 
 	reqBody := []byte("https://stackoverflow.com")
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(reqBody))
@@ -147,11 +153,12 @@ func ExampleService_DeleteUserURLs() {
 }
 
 // ExampleService_GetShortURLsBatch демонстрирует сокращение батча URL'ов.
-func ExampleService_GetShortURLsBatch() {
+func ExampleHandler_GetShortURLsBatch() {
 	var config config.Config
 	store, _ := storage.NewStorage(config)
-	service := NewService(config, store, nil)
-	router := NewRouter(*service)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
+	router := NewRouter(*HTTPHandler)
 
 	reqBody, _ := json.Marshal([]models.GetShortURLsBatchRequest{
 		{CorrelationID: "1", OriginalURL: "https://stackoverflow.com"},

@@ -14,6 +14,7 @@ import (
 
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
+	"github.com/nu-kotov/URLcompressor/internal/app/api/service"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
 	"golang.org/x/crypto/acme/autocert"
@@ -61,8 +62,9 @@ func run() error {
 		return fmt.Errorf("error initialize storage: %w", err)
 	}
 
-	service := handler.NewService(*config, store, trustedSubnet)
-	router := handler.NewRouter(*service)
+	service := service.NewURLService(*config, store)
+	HTTPHandler := handler.NewHandler(*config, service, store, trustedSubnet)
+	router := handler.NewRouter(*HTTPHandler)
 
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
