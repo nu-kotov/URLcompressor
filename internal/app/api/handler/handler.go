@@ -56,15 +56,9 @@ func (hnd *Handler) GetStats(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	URLsCount, err := hnd.Storage.SelectURLsCount(req.Context())
+	stats, err := hnd.service.GetStats(req.Context())
 	if err != nil {
-		logger.Log.Info("Failed to get URLs count", zap.Error(err))
-		res.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	usersCount, err := hnd.Storage.SelectUsersCount(req.Context())
-	if err != nil {
-		logger.Log.Info("Failed to get users count", zap.Error(err))
+		logger.Log.Info("Failed to get stats", zap.Error(err))
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -72,8 +66,7 @@ func (hnd *Handler) GetStats(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
 
-	resp := models.GetStatsResponse{URLs: URLsCount, Users: usersCount}
-	JSONResp, err := json.Marshal(resp)
+	JSONResp, err := json.Marshal(stats)
 	if err != nil {
 		logger.Log.Info("Failed to marshal response", zap.Error(err))
 		res.WriteHeader(http.StatusInternalServerError)

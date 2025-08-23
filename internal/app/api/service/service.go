@@ -12,6 +12,7 @@ import (
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
+	"go.uber.org/zap"
 )
 
 // Service - интерфейс для работы с URL.
@@ -22,6 +23,7 @@ type Service interface {
 	GetShortURLSrv(context.Context, []byte, string) (*models.ShortenURLResponse, error)
 	SendURLsToDeletion([]string, string)
 	SelectOriginalURLByShortURL(context.Context, string) (string, error)
+	GetStats(context.Context) (*models.GetStatsResponse, error)
 	PingDB() error
 }
 
@@ -207,4 +209,23 @@ func (srv *URLService) PingDB() error {
 	}
 
 	return nil
+}
+
+// GetStats возвращает количество пользователей и урлов в сервисе.
+func (srv *URLService) GetStats(ctx context.Context) (*models.GetStatsResponse, error) {
+
+	URLsCount, err := srv.Storage.SelectURLsCount(ctx)
+	if err != nil {
+		logger.Log.Info("Failed to get URLs count", zap.Error(err))
+		return nil, fmt.Errorf("failed to get URLs count: %w", err)
+	}
+	usersCount, err := srv.Storage.SelectUsersCount(ctx)
+	if err != nil {
+		logger.Log.Info("Failed to get users count", zap.Error(err))
+		return nil, fmt.Errorf("failed to get users count: %w", err)
+	}
+
+	resp := models.GetStatsResponse{URLs: URLsCount, Users: usersCount}
+
+	return &resp, nil
 }
