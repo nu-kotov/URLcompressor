@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package urlcompressor;
+
+option go_package = "github.com/nu-kotov/URLcompressor/internal/app/proto";
+
+message PingRequest {}
+
+message PingResponse {}
+
+message GetShortURLRequest {
+  string original_url = 1; 
+  string user_id = 2;
+}
+
+message GetShortURLResponse {
+  string short_url = 1;
+}
+
+message GetOriginalURLRequest {
+  string short_url_id = 1;
+}
+
+message GetOriginalURLResponse {
+  string original_url = 1; 
+}
+
+message GetShortURLsBatchRequestItem {
+  string correlation_id = 1;
+  string original_url = 2; 
+}
+
+message GetShortURLsBatchRequest {
+  repeated GetShortURLsBatchRequestItem items = 1;
+  string user_id = 2;
+}
+
+message GetShortURLsBatchResponseItem {
+  string correlation_id = 1;
+  string short_url = 2;
+}
+
+message GetShortURLsBatchResponse {
+  repeated GetShortURLsBatchResponseItem items = 1;
+}
+
+message GetUserURLsRequest {
+  string user_id = 1;
+}
+
+message GetUserURLItem {
+  string short_url = 1;
+  string original_url = 2;
+}
+
+message GetUserURLsResponse {
+  repeated GetUserURLItem urls = 1;
+}
+
+message DeleteURLsRequest {
+  repeated string short_urls = 1;
+  string user_id = 2;
+}
+  
+message DeleteURLsResponse {}
+
+message StatsRequest {}
+
+message StatsResponse {
+  int32 urls = 1;
+  int32 users = 2;
+}
+
+service URLcompressor {
+  rpc PingDB(PingDBRequest) returns (PingDBResponse);
+  rpc GetShortURL(GetShortURLRequest) returns (GetShortURLResponse);
+  rpc GetOriginalURL(GetOriginalURLRequest) returns (GetOriginalURLResponse);
+  rpc GetShortURLsBatch(GetShortURLsBatchRequest) returns (GetShortURLsBatchResponse);
+  rpc GetUserURLs(GetUserURLsRequest) returns (GetUserURLsResponse);
+  rpc DeleteUserURLs(DeleteURLsRequest) returns (DeleteURLsResponse);
+  rpc GetStats(StatsRequest) returns (StatsResponse);
+}
