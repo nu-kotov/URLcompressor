@@ -15,9 +15,12 @@ import (
 	"github.com/nu-kotov/URLcompressor/config"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/handler"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/service"
+	"github.com/nu-kotov/URLcompressor/internal/app/grpcserver"
 	"github.com/nu-kotov/URLcompressor/internal/app/logger"
+	"github.com/nu-kotov/URLcompressor/internal/app/proto"
 	"github.com/nu-kotov/URLcompressor/internal/app/storage"
 	"golang.org/x/crypto/acme/autocert"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -75,6 +78,15 @@ func run() error {
 		Handler: router,
 	}
 
+	grpcSrv := grpc.NewServer()
+	grpcHandler := grpcserver.NewgRPCServer(service)
+	proto.RegisterURLcompressorServer(grpcSrv, grpcHandler)
+
+	grpcListener, err := net.Listen("tcp", config.GRPCServerAddress)
+	if err != nil {
+		return fmt.Errorf("error grpc Listen: %w", err)
+	}
+
 	go func() error {
 		if config.EnableHTTPS {
 			manager := &autocert.Manager{
@@ -96,6 +108,13 @@ func run() error {
 		return nil
 	}()
 
+	go func() error {
+		if err := grpcSrv.Serve(grpcListener); err != nil {
+			return fmt.Errorf("error starting gRPC server: %w", err)
+		}
+		return nil
+	}()
+
 	<-sigForShutdown
 
 	logger.Log.Info("shutdown signal received...")
@@ -106,6 +125,9 @@ func run() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	grpcSrv.GracefulStop()
+	logger.Log.Info("gRPC server shutdown gracefully")
 
 	if err := server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server forced to shutdown: %w", err)

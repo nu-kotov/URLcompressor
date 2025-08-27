@@ -4,9 +4,9 @@ package urlcompressor;
 
 option go_package = "github.com/nu-kotov/URLcompressor/internal/app/proto";
 
-message PingRequest {}
+message PingDBRequest {}
 
-message PingResponse {}
+message PingDBResponse {}
 
 message GetShortURLRequest {
   string original_url = 1; 

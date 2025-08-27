@@ -17,6 +17,7 @@ type Config struct {
 	EnableHTTPS        bool
 	ConfigFileName     string
 	TrustedSubnet      string
+	GRPCServerAddress  string
 }
 
 // FileConfig - структура конфигурации проекта из файла json.
@@ -28,6 +29,7 @@ type JSONFileConfig struct {
 	EnableHTTPS        bool   `json:"enable_https"`
 	ConfigFileName     string `json:"config_file_name"`
 	TrustedSubnet      string `json:"trusted_subnet"`
+	GRPCServerAddress  string `json:"jrpc_server_address"`
 }
 
 // NewConfig - конструктор конфигурации проекта.
@@ -42,11 +44,15 @@ func NewConfig() (*Config, error) {
 	flag.StringVar(&config.ConfigFileName, "c", "", "JSON config file name")
 	flag.BoolVar(&config.EnableHTTPS, "s", false, "Enable HTTPS connection")
 	flag.StringVar(&config.TrustedSubnet, "t", "", "Trusted subnet in CIDR format")
+	flag.StringVar(&config.GRPCServerAddress, "j", "localhost:50051", "jrpc server address")
 
 	if envConfigFileName := os.Getenv("CONFIG"); envConfigFileName != "" {
 		config.ConfigFileName = envConfigFileName
 	}
 
+	if envGRPCServerAddress := os.Getenv("JRPC_SERVER_ADDRESS"); envGRPCServerAddress != "" {
+		config.GRPCServerAddress = envGRPCServerAddress
+	}
 	if envRunAddr := os.Getenv("SERVER_ADDRESS"); envRunAddr != "" {
 		config.RunAddr = envRunAddr
 	}
@@ -86,6 +92,9 @@ func NewConfig() (*Config, error) {
 		bytes, _ := io.ReadAll(confJSONFile)
 		json.Unmarshal(bytes, &jsonConfig)
 
+		if config.GRPCServerAddress == "" {
+			config.GRPCServerAddress = jsonConfig.GRPCServerAddress
+		}
 		if config.RunAddr == "" {
 			config.RunAddr = jsonConfig.RunAddr
 		}
