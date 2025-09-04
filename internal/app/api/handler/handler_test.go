@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/nu-kotov/URLcompressor/config"
+	"github.com/nu-kotov/URLcompressor/internal/app/api/service"
 	"github.com/nu-kotov/URLcompressor/internal/app/api/utils"
 	"github.com/nu-kotov/URLcompressor/internal/app/middleware"
 	"github.com/nu-kotov/URLcompressor/internal/app/models"
@@ -28,7 +29,8 @@ func TestCompressURLWithPGMock(t *testing.T) {
 	config, err := config.NewConfig()
 	assert.NoError(t, err, "error config init")
 
-	service := NewService(*config, storage)
+	service := service.NewURLService(*config, storage)
+	HTTPHandler := NewHandler(*config, service, storage, nil)
 
 	storage.EXPECT().InsertURLsData(gomock.Any(), gomock.Any()).Return(nil)
 
@@ -38,7 +40,7 @@ func TestCompressURLWithPGMock(t *testing.T) {
 		middleware.RequestSession,
 	)
 
-	handler := http.HandlerFunc(middlewareStack(service.CompressURL))
+	handler := http.HandlerFunc(middlewareStack(HTTPHandler.CompressURL))
 	server := httptest.NewServer(handler)
 
 	defer server.Close()
@@ -77,7 +79,8 @@ func TestCompressURL(t *testing.T) {
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := NewService(config, store)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
 
 	middlewareStack := middleware.Chain(
 		middleware.RequestCompressor,
@@ -85,7 +88,7 @@ func TestCompressURL(t *testing.T) {
 		middleware.RequestSession,
 	)
 
-	handler := http.HandlerFunc(middlewareStack(service.CompressURL))
+	handler := http.HandlerFunc(middlewareStack(HTTPHandler.CompressURL))
 	server := httptest.NewServer(handler)
 
 	defer server.Close()
@@ -194,7 +197,8 @@ func TestGetShortURL(t *testing.T) {
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := NewService(config, store)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
 
 	middlewareStack := middleware.Chain(
 		middleware.RequestCompressor,
@@ -202,7 +206,7 @@ func TestGetShortURL(t *testing.T) {
 		middleware.RequestSession,
 	)
 
-	handler := http.HandlerFunc(middlewareStack(service.GetShortURL))
+	handler := http.HandlerFunc(middlewareStack(HTTPHandler.GetShortURL))
 	server := httptest.NewServer(handler)
 
 	defer server.Close()
@@ -317,7 +321,8 @@ func TestRedirectByShortURLID(t *testing.T) {
 	store, err := storage.NewStorage(config)
 	assert.NoError(t, err, "storage initializing error")
 
-	service := NewService(config, store)
+	service := service.NewURLService(config, store)
+	HTTPHandler := NewHandler(config, service, store, nil)
 
 	router := mux.NewRouter()
 
@@ -327,8 +332,8 @@ func TestRedirectByShortURLID(t *testing.T) {
 		middleware.RequestSession,
 	)
 
-	router.HandleFunc(`/`, middlewareStack(service.CompressURL))
-	router.HandleFunc(`/{id:\w+}`, middlewareStack(service.RedirectByShortURLID))
+	router.HandleFunc(`/`, middlewareStack(HTTPHandler.CompressURL))
+	router.HandleFunc(`/{id:\w+}`, middlewareStack(HTTPHandler.RedirectByShortURLID))
 	server := httptest.NewServer(router)
 
 	parsedURL, err := url.Parse(server.URL)

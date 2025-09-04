@@ -66,6 +66,29 @@ func (f *FileStorage) InsertURLsDataBatch(ctx context.Context, data []models.URL
 	return nil
 }
 
+// SelectURLsCount - получает количество урлов в сервисе.
+func (f *FileStorage) SelectURLsCount(ctx context.Context) (int, error) {
+	return len(f.mapCash), nil
+}
+
+// SelectURLsCount - получает количество пользователей в сервисе.
+func (f *FileStorage) SelectUsersCount(ctx context.Context) (int, error) {
+	users := make(map[string]struct{})
+
+	for {
+		fileStr, err := f.dataConsumer.ReadEvent()
+		if err != nil {
+			return -1, err
+		}
+		if fileStr == nil {
+			break
+		}
+		users[fileStr.UserID] = struct{}{}
+	}
+
+	return len(users), nil
+}
+
 // SelectURLs - возвращает информацию по урлам пользователя из файла.
 func (f *FileStorage) SelectURLs(ctx context.Context, userID string) ([]models.GetUserURLsResponse, error) {
 	var data []models.GetUserURLsResponse
